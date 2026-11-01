@@ -35,7 +35,7 @@ const MODEL_URLS = {
   droneRotor: '/models/drone_rotor.glb?v=3',
   agv: '/models/agv.glb?v=3',
   biped: '/models/biped.glb?v=3',
-  amr: '/models/amr.glb?v=3',
+  amr: '/models/amr.glb?v=5',
 } as const;
 
 /* ================================================================== */
@@ -349,26 +349,109 @@ export function AgvModel({ sagging }: GhostModelProps) {
 
 export const amrWorldPos = new THREE.Vector3(0, 0, 3.0);
 
-const PATROL_RX = 5.6;     // bán kính X vòng tuần tra quanh lõi
-const PATROL_RZ = 3.3;     // bán kính Z
-const PATROL_CZ = -0.9;    // tâm Z
-const PATROL_SPEED = 0.22; // rad/s
-const CRASH_DUR = 2.6;     // giây mất định vị
+const AMR_RADIUS = 0.68;          // bán kính thân AMR để tránh va chạm vật lý
+const AMR_WHEEL_RADIUS = 0.1493;  // bán kính thực của bánh xe CAD (m) -> v = omega * R
+const AMR_CRUISE_SPEED = 1.35;    // tốc độ tuần tra định mức (m/s)
+const CRASH_DUR = 2.8;            // giây mất định vị xoay tại chỗ
+
+const SWERVE_MODULES = [
+  { steer: 'Steer_FL', wheel: 'Wheel_FL', rx: 0.4898, rz: 0.4809 },
+  { steer: 'Steer_FR', wheel: 'Wheel_FR', rx: -0.4898, rz: 0.4809 },
+  { steer: 'Steer_BL', wheel: 'Wheel_BL', rx: 0.4898, rz: -0.4809 },
+  { steer: 'Steer_BR', wheel: 'Wheel_BR', rx: -0.4898, rz: -0.4809 },
+] as const;
+
+// Lộ trình tuần tra khép kín (Nav2 Spline) đi theo hành lang trống giữa các bệ trưng bày & Arc Reactor
+const PATROL_CURVE = new THREE.CatmullRomCurve3(
+  [
+    new THREE.Vector3(0.0, 0, 3.0),     // Trạm sạc DOCK-01
+    new THREE.Vector3(3.5, 0, 2.2),     // Sảnh trước bên phải
+    new THREE.Vector3(3.55, 0, -0.9),   // Hành lang phải (giữa Reactor & IRON-BIPED)
+    new THREE.Vector3(1.85, 0, -3.05),  // Hành lang sau phải (giữa Reactor & GHOST-AGV)
+    new THREE.Vector3(0.0, 0, -3.55),   // Hành lang sau trung tâm (dưới SKY-GHOST)
+    new THREE.Vector3(-1.85, 0, -3.05), // Hành lang sau trái (giữa Reactor & SMOKE-TRAP)
+    new THREE.Vector3(-3.25, 0, -0.85), // Hành lang trái (né mũi càng xe nâng FORK-EYE & Reactor)
+    new THREE.Vector3(-3.5, 0, 2.2),    // Sảnh trước bên trái
+  ],
+  true,
+  'catmullrom',
+  0.5
+);
+const PATROL_LENGTH = PATROL_CURVE.getLength();
+
+// Vật cản cố định dưới sàn (ngoài các bệ dự án động đọc từ store)
+const STATIC_FLOOR_OBSTACLES: { x: number; z: number; r: number }[] = [
+  { x: 0.0, z: -1.0, r: 1.56 },   // Lõi Arc Reactor giữa sàn
+  { x: -5.0, z: -1.0, r: 0.65 },  // Mũi càng thép xe nâng FORK-EYE thò ra ngoài bệ
+  { x: -8.2, z: -3.0, r: 1.1 },   // Bàn màn hình hỏng bên trái
+  { x: 8.2, z: -3.4, r: 1.0 },    // Thùng linh kiện bên phải
+];
+
+function wrapPi(a: number): number {
+  let x = (a + Math.PI) % (Math.PI * 2);
+  if (x < 0) x += Math.PI * 2;
+  return x - Math.PI;
+}
+
+/** Đẩy AMR ra khỏi mọi bệ trưng bày & vật cản để không bao giờ đi xuyên vật thể */
+function resolveFloorCollisions(pos: THREE.Vector3, projects: DustyProject[]) {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const p of projects) {
+      if (p.id === 'amr-slam' || p.position[1] > 0.8) continue;
+      const minD = 1.60 + AMR_RADIUS;
+      const dx = pos.x - p.position[0];
+      const dz = pos.z - p.position[2];
+      const d = Math.hypot(dx, dz);
+      if (d < minD) {
+        const ux = d > 1e-4 ? dx / d : 1;
+        const uz = d > 1e-4 ? dz / d : 0;
+        pos.x = p.position[0] + ux * minD;
+        pos.z = p.position[2] + uz * minD;
+      }
+    }
+    for (const ob of STATIC_FLOOR_OBSTACLES) {
+      const minD = ob.r + AMR_RADIUS;
+      const dx = pos.x - ob.x;
+      const dz = pos.z - ob.z;
+      const d = Math.hypot(dx, dz);
+      if (d < minD) {
+        const ux = d > 1e-4 ? dx / d : 0;
+        const uz = d > 1e-4 ? dz / d : 1;
+        pos.x = ob.x + ux * minD;
+        pos.z = ob.z + uz * minD;
+      }
+    }
+    pos.x = Math.max(-7.2, Math.min(7.2, pos.x));
+    pos.z = Math.max(-7.6, Math.min(6.8, pos.z));
+  }
+}
 
 const AMR_CRASH_MSGS = [
   'AMR_SLAM: Mất định vị — xoay vòng trầm cảm lần thứ 8 trong giờ',
-  'AMR_SLAM: Occupancy grid lệch 40cm, lao lẻng xẻng vào hư không',
+  'AMR_SLAM: Occupancy grid lệch 40cm, phanh gấp xoay tại chỗ tìm bản đồ',
   'AMR_SLAM: LiDAR trả về 3 bản đồ khác nhau, đang bỏ phiếu tin bản nào',
-  'AMR_SLAM: micro-ROS mất gói UART — bản đồ hóa nghệ thuật trừu tượng',
-  'AMR_SLAM: Kidnapped robot — tự tái định vị thẳng vào chân tủ sắt',
+  'AMR_SLAM: micro-ROS mất gói UART — khóa bánh Swerve xoay compa tại chỗ',
+  'AMR_SLAM: Kidnapped robot — tự tái định vị ngay trước mũi bệ trưng bày',
 ];
 
 const AMR_EMPTY_FX = { incense: 0, dust: 0, bonk: 0, boom: 0 } as const;
 const amrDustColor = (d: number) => (d > 80 ? '#ff4d5e' : d > 55 ? '#ffb02e' : '#3dffa0');
+const TMP_PT = new THREE.Vector3();
+const TMP_TAN = new THREE.Vector3();
+const TMP_TAN2 = new THREE.Vector3();
 
 export function AmrRover({ project, sagging }: { project: DustyProject; sagging: boolean }) {
   const { scene } = useGLTF(MODEL_URLS.amr);
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+  const { cloned, modules } = useMemo(() => {
+    const c = scene.clone(true);
+    const mods = SWERVE_MODULES.map((m) => ({
+      ...m,
+      steerObj: c.getObjectByName(m.steer) ?? null,
+      wheelObj: c.getObjectByName(m.wheel) ?? null,
+    }));
+    return { cloned: c, modules: mods };
+  }, [scene]);
+
   const select = useLabStore((s) => s.select);
   const selected = useLabStore((s) => s.selectedId === project.id);
   const fx = useLabStore((s) => s.fx[project.id]) ?? AMR_EMPTY_FX;
@@ -379,10 +462,15 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
   const spark = useRef<THREE.Mesh>(null);
   const lamp = useRef<THREE.PointLight>(null);
 
-  const pathAngle = useRef(0.9);
-  const heading = useRef(0);
+  const distAlong = useRef(0.0);
+  const initialized = useRef(false);
+  const prevPos = useRef(new THREE.Vector3(0, 0, 3.0));
+  const prevYaw = useRef(Math.PI * 0.5);
+  const steerAngles = useRef<number[]>([0, 0, 0, 0]);
+  const wheelRolls = useRef<number[]>([0, 0, 0, 0]);
+
   const crashStart = useRef(-1);
-  const nextCrash = useRef(6 + Math.random() * 8);
+  const nextCrash = useRef(9 + Math.random() * 10);
   const [crashing, setCrashing] = useState(false);
   const [crashNonce, setCrashNonce] = useState(0);
   const [tagTooClose, setTagTooClose] = useState(false);
@@ -402,6 +490,18 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
     const t = state.clock.elapsedTime;
     const b = body.current;
     if (!b) return;
+    const safeDt = Math.min(Math.max(dt, 0.001), 0.05);
+
+    if (!initialized.current) {
+      initialized.current = true;
+      PATROL_CURVE.getPointAt(0, TMP_PT);
+      PATROL_CURVE.getTangentAt(0, TMP_TAN);
+      b.position.set(TMP_PT.x, 0.005, TMP_PT.z);
+      const initYaw = Math.atan2(TMP_TAN.x, TMP_TAN.z);
+      b.rotation.y = initYaw;
+      prevPos.current.copy(b.position);
+      prevYaw.current = initYaw;
+    }
 
     if (fx.incense !== lastIncense.current) {
       lastIncense.current = fx.incense;
@@ -424,14 +524,12 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
       if (t - crashStart.current >= CRASH_DUR) {
         crashStart.current = -1;
         setCrashing(false);
-        nextCrash.current = t + 10 + Math.random() * 12;
-        b.rotation.y = heading.current;
+        nextCrash.current = t + 14 + Math.random() * 14;
         if (spark.current) spark.current.visible = false;
       } else {
-        b.position.x += (Math.random() - 0.5) * 0.03;
-        b.position.z += (Math.random() - 0.5) * 0.03;
-        b.rotation.y += dt * 8.5;
-        if (spark.current) spark.current.visible = Math.random() > 0.4;
+        // Mất định vị SLAM: đứng yên tại chỗ, khóa 4 cụm Swerve xoay tròn tìm lại bản đồ
+        b.rotation.y = wrapPi(b.rotation.y + safeDt * 3.4);
+        if (spark.current) spark.current.visible = Math.random() > 0.45;
       }
     } else {
       if (t > nextCrash.current) {
@@ -443,11 +541,82 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
           .getState()
           .pushFeed('amr-crash', project.id, AMR_CRASH_MSGS[Math.floor(Math.random() * AMR_CRASH_MSGS.length)]);
       }
-      const a = (pathAngle.current += dt * PATROL_SPEED);
-      b.position.set(Math.cos(a) * PATROL_RX, b.position.y, Math.sin(a) * PATROL_RZ + PATROL_CZ);
-      heading.current = Math.atan2(-Math.sin(a) * PATROL_RX, Math.cos(a) * PATROL_RZ);
-      b.rotation.y = heading.current + Math.sin(t * 2.2) * 0.03;
+
+      // Tính độ cong phía trước để tự giảm tốc mượt khi vào cua hẹp (như bộ điều khiển Nav2 thật)
+      const uCur = (distAlong.current % PATROL_LENGTH) / PATROL_LENGTH;
+      const uAhead = ((distAlong.current + 0.9) % PATROL_LENGTH) / PATROL_LENGTH;
+      PATROL_CURVE.getTangentAt(uCur, TMP_TAN);
+      PATROL_CURVE.getTangentAt(uAhead, TMP_TAN2);
+      const turnCos = Math.max(-1, Math.min(1, TMP_TAN.x * TMP_TAN2.x + TMP_TAN.z * TMP_TAN2.z));
+      const cornerSlowdown = 0.62 + 0.38 * Math.max(0, turnCos);
+      const speed = AMR_CRUISE_SPEED * cornerSlowdown;
+
+      distAlong.current = (distAlong.current + speed * safeDt) % PATROL_LENGTH;
+      const uNext = distAlong.current / PATROL_LENGTH;
+      PATROL_CURVE.getPointAt(uNext, TMP_PT);
+      PATROL_CURVE.getTangentAt(uNext, TMP_TAN);
+
+      b.position.x = TMP_PT.x;
+      b.position.z = TMP_PT.z;
+
+      // Xử lý va chạm vật lý cứng với toàn bộ bệ trưng bày & vật cản trên sàn
+      resolveFloorCollisions(b.position, useLabStore.getState().projects);
+
+      // Mũi xe hướng mượt theo tiếp tuyến quỹ đạo (ở hành lang sau thể hiện nhẹ khả năng đi chéo Swerve)
+      const desiredHeading = Math.atan2(TMP_TAN.x, TMP_TAN.z);
+      const yawErr = wrapPi(desiredHeading - b.rotation.y);
+      b.rotation.y = wrapPi(b.rotation.y + yawErr * (1 - Math.exp(-safeDt * 6.5)));
     }
+
+    // -------------------------------------------------------------------------
+    // Động học ngược 4 cụm bánh Swerve Drive chuẩn vật lý (v_i = v_body + ω × r_i)
+    // Không trượt ngang, tốc độ lăn từng bánh khớp chính xác quãng đường mặt sàn (ω_wheel = v_i / R)
+    // -------------------------------------------------------------------------
+    const dxW = b.position.x - prevPos.current.x;
+    const dzW = b.position.z - prevPos.current.z;
+    const dYaw = wrapPi(b.rotation.y - prevYaw.current);
+
+    const vxW = dxW / safeDt;
+    const vzW = dzW / safeDt;
+    const omegaY = dYaw / safeDt;
+
+    const cosP = Math.cos(b.rotation.y);
+    const sinP = Math.sin(b.rotation.y);
+    // Đổi vận tốc tịnh tiến từ hệ tọa độ phòng sang hệ tọa độ gắn trên thân AMR (+X trái, +Z tiến)
+    const vxLocal = vxW * cosP - vzW * sinP;
+    const vzLocal = vxW * sinP + vzW * cosP;
+
+    for (let i = 0; i < modules.length; i++) {
+      const m = modules[i];
+      // Vận tốc tiếp đất tại tâm cụm bánh thứ i: v_i = v_local + (0, ω, 0) × (rx, 0, rz)
+      const ux = vxLocal + omegaY * m.rz;
+      const uz = vzLocal - omegaY * m.rx;
+      const wheelSpeed = Math.hypot(ux, uz);
+
+      if (wheelSpeed > 0.012) {
+        let desiredSteer = Math.atan2(ux, uz);
+        let driveSign = 1;
+        // Giới hạn góc bẻ lái trong [-90°, +90°] quanh vị trí gốc 0° (như giới hạn dây cáp motor Swerve thực tế)
+        // để cụm motor trục hẫng & dây cáp cam luôn nằm gọn dưới gầm xe, không bao giờ lật ngược 180° ra ngoài!
+        if (desiredSteer > Math.PI * 0.5) {
+          desiredSteer -= Math.PI;
+          driveSign = -1;
+        } else if (desiredSteer < -Math.PI * 0.5) {
+          desiredSteer += Math.PI;
+          driveSign = -1;
+        }
+        const delta = desiredSteer - steerAngles.current[i];
+        steerAngles.current[i] += delta * (1 - Math.exp(-safeDt * 18));
+        wheelRolls.current[i] +=
+          (driveSign * wheelSpeed * Math.cos(delta) * safeDt) / AMR_WHEEL_RADIUS;
+      }
+
+      if (m.steerObj) m.steerObj.rotation.set(0, steerAngles.current[i], 0);
+      if (m.wheelObj) m.wheelObj.rotation.set(wheelRolls.current[i], 0, 0);
+    }
+
+    prevPos.current.copy(b.position);
+    prevYaw.current = b.rotation.y;
 
     if (scan.current) {
       scan.current.rotation.z = -t * 7.5;
@@ -466,8 +635,14 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
     }
 
     const bt = t - bonkT.current;
-    const jolt = bt >= 0 && bt < 0.5 ? (1 - bt / 0.5) * 0.08 : 0;
-    b.position.y = 0.01 + Math.abs(Math.sin(t * 90)) * jolt;
+    const jolt = bt >= 0 && bt < 0.5 ? (1 - bt / 0.5) * 0.07 : 0;
+    // Khi bánh xe lăn qua thảm sạc cảm ứng DOCK-01 (cao 2.6cm), thân xe nâng/hạ mượt theo dốc thảm sạc
+    const dockDx = Math.abs(b.position.x - project.position[0]);
+    const dockDz = Math.abs(b.position.z - project.position[2]);
+    const dockRampX = Math.max(0, Math.min(1, (0.92 - dockDx) / 0.28));
+    const dockRampZ = Math.max(0, Math.min(1, (0.92 - dockDz) / 0.28));
+    const dockLift = 0.026 * dockRampX * dockRampZ;
+    b.position.y = 0.004 + dockLift + Math.abs(Math.sin(t * 90)) * jolt;
     if (lamp.current) lamp.current.intensity = 1.4 + boomFlash.current * 25;
     boomFlash.current *= 0.85;
 
@@ -484,19 +659,19 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
 
   return (
     <group>
-      {/* Trạm sạc xuất phát DOCK-01 */}
+      {/* Trạm sạc cảm ứng xuất phát DOCK-01 (vát dốc 2.6cm để bánh Swerve leo qua thật vật lý) */}
       <group position={project.position as [number, number, number]}>
-        <mesh position={[0, 0.03, 0]}>
-          <boxGeometry args={[1.35, 0.05, 1.35]} />
+        <mesh position={[0, 0.013, 0]}>
+          <boxGeometry args={[1.45, 0.026, 1.45]} />
           <meshStandardMaterial color="#1a2430" metalness={0.7} roughness={0.5} />
         </mesh>
-        <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0.028, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.45, 0.53, 28]} />
           <meshBasicMaterial color={HOLO} transparent opacity={0.45} side={THREE.DoubleSide} />
         </mesh>
         {[-0.24, 0.24].map((x) => (
-          <mesh key={x} position={[x, 0.09, -0.36]}>
-            <cylinderGeometry args={[0.03, 0.03, 0.08, 10]} />
+          <mesh key={x} position={[x, 0.055, 0.66]}>
+            <cylinderGeometry args={[0.026, 0.026, 0.06, 10]} />
             <meshStandardMaterial
               color={AMBER}
               metalness={0.8}
