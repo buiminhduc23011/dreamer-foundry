@@ -84,12 +84,14 @@ echo "Extracting to /tmp/ghostlab-update..."
 echo '$SudoPass' | sudo -S rm -rf /tmp/ghostlab-update
 echo '$SudoPass' | sudo -S mkdir -p /tmp/ghostlab-update
 echo '$SudoPass' | sudo -S chown -R ducne:ducne /tmp/ghostlab-update
-tar -xzf /tmp/deploy-update.tar.gz -C /tmp/ghostlab-update
+tar --no-same-permissions -xzf /tmp/deploy-update.tar.gz -C /tmp/ghostlab-update || tar -xzf /tmp/deploy-update.tar.gz -C /tmp/ghostlab-update
+echo '$SudoPass' | sudo -S chmod -R u+w /tmp/ghostlab-update
 
 echo "Installing to `$DIR..."
 echo '$SudoPass' | sudo -S mkdir -p "`$DIR"
 echo '$SudoPass' | sudo -S rsync -av --delete --exclude='lab-state.json' --exclude='chat-secrets.json' /tmp/ghostlab-update/ "`$DIR/"
 echo '$SudoPass' | sudo -S chown -R ducne:ducne "`$DIR"
+echo '$SudoPass' | sudo -S chmod -R u+w "`$DIR"
 chmod +x "`$DIR/GhostLab"
 
 echo "Installing systemd unit `$SVC..."

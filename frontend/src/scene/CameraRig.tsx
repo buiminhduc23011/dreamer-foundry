@@ -3,17 +3,14 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { CameraControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useLabStore } from '../store/labStore';
-import { amrWorldPos } from './GhostModels';
 
-const HOME_POS = new THREE.Vector3(0, 5.2, 11.5);
-const HOME_TGT = new THREE.Vector3(0, 1.2, -2.6);
-const AMR_ID = 'amr-slam';
-const TMP = new THREE.Vector3();
+const HOME_POS = new THREE.Vector3(0, 5.2, 11.2);
+const HOME_TGT = new THREE.Vector3(0, 1.25, -2.2);
 const LERP_K = 4.2;
 
 /**
  * Điều khiển Camera tự do bằng chuột/cảm ứng (không tự xoay Cinematic Tour).
- * Khi bấm chọn dự án hoặc nút TỔNG QUAN thì camera lướt mượt tới góc nhìn tương ứng.
+ * Khi bấm chọn dự án hoặc nút TỔNG QUAN thì camera lướt mượt tới góc nhìn cận cảnh tương ứng.
  */
 export function CameraRig() {
   const controls = useRef<CameraControls>(null);
@@ -23,22 +20,18 @@ export function CameraRig() {
   const curTgt = useRef(HOME_TGT.clone());
   const goal = useRef(HOME_POS.clone());
   const goalTgt = useRef(HOME_TGT.clone());
-  const baseOffset = useRef(new THREE.Vector3(1.3, 2.0, 3.8));
   const driving = useRef(false);
-  const amrChasing = useRef(false);
   const initialized = useRef(false);
   const focusKey = useRef('init');
   const lastHomeNonce = useRef(0);
   const lastShake = useRef(0);
   const shakeStart = useRef(-1);
 
-  // Khi người dùng chủ động kéo/lăn chuột → nhả lái tự động ngay để không giằng chuột
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
     const stopAuto = () => {
       driving.current = false;
-      amrChasing.current = false;
     };
     c.addEventListener('controlstart', stopAuto);
     return () => {
@@ -66,44 +59,34 @@ export function CameraRig() {
       focusKey.current = focus;
       lastHomeNonce.current = s.homeNonce;
 
-      // Đọc vị trí camera hiện tại từ CameraControls để chuyển cảnh mượt từ đúng chỗ đang đứng
       c.getPosition(cur.current);
       c.getTarget(curTgt.current);
 
       if (focus === 'none') {
         goal.current.copy(HOME_POS);
         goalTgt.current.copy(HOME_TGT);
-        amrChasing.current = false;
         driving.current = true;
       } else {
         const id = s.selectedId;
         const p = s.projects.find((x) => x.id === id);
         if (p) {
-          if (id === AMR_ID) {
-            goalTgt.current.copy(amrWorldPos);
-            goalTgt.current.y += 0.45;
-            goal.current.copy(goalTgt.current).add(TMP.set(1.3, 2.0, 3.8));
-            baseOffset.current.subVectors(goal.current, goalTgt.current);
-            amrChasing.current = true;
+          const [x, , z] = p.position;
+          if (id === 'jarvis-core') {
+            goalTgt.current.set(x, 1.45, z);
+            goal.current.set(x + 0.4, 2.35, z + 3.85);
+          } else if (id === 'fork-eye') {
+            goalTgt.current.set(x, 0.95, z);
+            goal.current.set(x * 0.62, 2.05, z + 4.3);
+          } else if (id === 'remote-io') {
+            goalTgt.current.set(x, 1.15, z);
+            goal.current.set(x + 0.45, 1.85, z + 2.65);
           } else {
-            const [x, y, z] = p.position;
-            const isVehicle = id === 'fork-eye' || id === 'ghost-agv';
-            const focusY = isVehicle ? y + 0.9 : y + 1.25;
-            goal.current.set(x * 0.55, focusY + 1.1, z + 4.6);
-            goalTgt.current.set(x, focusY, z);
-            amrChasing.current = false;
+            goalTgt.current.set(x, 1.32, z);
+            goal.current.set(x * 0.68, 2.15, z + 3.4);
           }
           driving.current = true;
         }
       }
-    }
-
-    // Nếu đang chọn AMR và chưa kéo chuột thủ công thì bám theo robot đang chạy
-    if (amrChasing.current && s.selectedId === AMR_ID) {
-      goalTgt.current.copy(amrWorldPos);
-      goalTgt.current.y += 0.45;
-      goal.current.copy(goalTgt.current).add(baseOffset.current);
-      driving.current = true;
     }
 
     if (driving.current) {
@@ -111,12 +94,11 @@ export function CameraRig() {
       cur.current.lerp(goal.current, k);
       curTgt.current.lerp(goalTgt.current, k);
       c.setLookAt(cur.current.x, cur.current.y, cur.current.z, curTgt.current.x, curTgt.current.y, curTgt.current.z, false);
-      if (!amrChasing.current && cur.current.distanceTo(goal.current) < 0.03) {
+      if (cur.current.distanceTo(goal.current) < 0.03) {
         driving.current = false;
       }
     }
 
-    // Rung nhẹ khi gõ đầu / nổ mạch
     if (s.shakeNonce !== lastShake.current) {
       lastShake.current = s.shakeNonce;
       shakeStart.current = t;
@@ -133,7 +115,7 @@ export function CameraRig() {
     <CameraControls
       ref={controls}
       makeDefault
-      minDistance={2.0}
+      minDistance={1.6}
       maxDistance={24}
       maxPolarAngle={Math.PI / 2.04}
       smoothTime={0.25}

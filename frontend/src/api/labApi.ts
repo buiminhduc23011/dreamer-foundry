@@ -329,13 +329,13 @@ function createMockClient(handlers: LabHandlers): LabClient {
       } else if (/tiền|kinh phí|tài trợ|ngân sách/.test(q)) {
         reply = 'Kinh phí GhostLab được tính bằng đơn vị "suất mì tôm". Quỹ hiện tại: âm vô cực. Mỗi linh kiện mua về đều có giấy phép cư trú trong nghĩa địa sẵn.';
       } else if (/trốn|đâu|ở đâu|mộng mơ/.test(q)) {
-        reply = 'Kẻ Mộng Mơ đang trốn sau đống board mạch cháy khu vực hàn. Nếu nghe tiếng hút thuốc của quạt SMOKE-TRAP thì đi hướng ngược lại.';
+        reply = 'Kẻ Mộng Mơ đang trốn dưới gầm bàn kính J.A.R.V.I.S. để dò dây mạng PROFINET. Nếu thấy đèn đỏ BF trên trạm REMOTE-IO nháy dồn dập thì chính là hắn đang chọc tua-vít vào đấy.';
       } else if (/tiến độ|dự án|bao giờ xong/.test(q)) {
         reply = `Phòng lab hiện có ${projects.length} dự án ma. Tiến độ trung bình: "sắp xong" theo định nghĩa vũ trụ. Ước tính hoàn thành: khi bụi phủ kín Trái Đất.`;
       } else {
         reply = pick([
           'Câu hỏi hay đấy — đáng tiếc câu trả lời cũng đang trong roadmap, trạng thái TRONG MƠ.',
-          'Tôi vừa hỏi con AMR — nó đang xoay vòng trầm cảm ngoài sàn nên chưa trả lời. Bạn cứ tin tôi là đúng đi.',
+          'Tôi vừa hỏi lõi J.A.R.V.I.S. giữa phòng — nó đang bận đốt 12GB VRAM để xoay vòng hologram cho ngầu nên chưa trả lời.',
           'Theo kinh nghiệm trực ban hầm ngầm của tôi: tắt nguồn bật lại. Nếu không hết thì thắp nén hương điện tử cho nó.',
           'Debug tip cấp hầm: 90% vấn đề là dây cắm lỏng, 10% còn lại là niềm tin vào datasheet.',
         ]);

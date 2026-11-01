@@ -217,6 +217,16 @@ public class GeminiChatService
             });
         }
 
+        // AMR Swerve / SLAM
+        if (q.Contains("amr") || q.Contains("swerve") || q.Contains("slam") || q.Contains("lidar"))
+        {
+            return Pick(new[]
+            {
+                "Con PRJ-AMR-SLAM 4 bánh Swerve vẫn đang chạy vòng vòng quanh bàn kính J.A.R.V.I.S. đấy! Từ ngày bị dẹp mất trạm sạc cố định, nó cứ lượn mãi không biết đỗ vào đâu, thỉnh thoảng lại mất định vị xoay compa trầm cảm.",
+                "AMR Swerve chạy động học 4 bánh bẻ lái độc lập mượt lắm, mỗi tội micro-ROS rớt gói UART là đứng giữa hành lang xoay tròn tìm bản đồ."
+            });
+        }
+
         // Điện áp / Nguồn / Sụt / Vôn
         if (q.Contains("nguồn") || q.Contains("vôn") || q.Contains("volt") || q.Contains("sụt"))
         {

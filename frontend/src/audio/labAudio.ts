@@ -52,9 +52,6 @@ class LabAudioEngine {
   private listeners = new Set<Listener>();
   private tmpForward = new THREE.Vector3();
   private tmpUp = new THREE.Vector3();
-  private prevAmrPos = new THREE.Vector3();
-  private amrSpeed = 0;
-
   constructor() {
     this.loadPrefs();
     if (typeof window !== 'undefined') {
@@ -606,7 +603,6 @@ class LabAudioEngine {
   updateSpatialFrame(
     camera: THREE.Camera,
     projectPositions: Record<string, [number, number, number]>,
-    amrPos: THREE.Vector3,
     sagging: boolean,
     t: number,
     dt: number
@@ -640,26 +636,12 @@ class LabAudioEngine {
       );
     }
 
-    // Vận tốc thực của AMR để điều biến tiếng servo Swerve
-    if (dt > 0.0001) {
-      const dist = amrPos.distanceTo(this.prevAmrPos);
-      const instSpeed = dist / dt;
-      if (instSpeed < 20) {
-        this.amrSpeed = this.amrSpeed * 0.88 + instSpeed * 0.12;
-      }
-      this.prevAmrPos.copy(amrPos);
-    }
-
     // Cập nhật tọa độ từng máy trong không gian 3D
     this.machines.forEach((rig, id) => {
-      if (id === 'amr-slam') {
-        rig.panner.positionX.value = amrPos.x;
-        rig.panner.positionY.value = amrPos.y + 0.35;
-        rig.panner.positionZ.value = amrPos.z;
-      } else if (projectPositions[id]) {
+      if (projectPositions[id]) {
         const [px, py, pz] = projectPositions[id];
         rig.panner.positionX.value = px;
-        rig.panner.positionY.value = py + (id === 'sky-ghost' ? 1.25 : 0.85);
+        rig.panner.positionY.value = py + (id === 'jarvis-core' ? 1.55 : id === 'sky-ghost' ? 1.3 : 0.95);
         rig.panner.positionZ.value = pz;
       }
       rig.update?.(t, dt);
@@ -701,34 +683,6 @@ class LabAudioEngine {
     src.start(now, Math.random() * 1.2, 0.11);
   }
 
-  /** Tiếng báo động hoảng loạn khi AMR mất định vị xoay vòng */
-  triggerAmrCrash() {
-    if (!this.ctx || this.ctx.state !== 'running' || this.muted || this.panicMuted) return;
-    const rig = this.machines.get('amr-slam');
-    if (!rig) return;
-
-    const now = this.ctx.currentTime;
-    const notes = [980, 740, 1180, 620, 480];
-    notes.forEach((f, i) => {
-      const o = this.ctx!.createOscillator();
-      const g = this.ctx!.createGain();
-      o.type = 'sawtooth';
-      const t0 = now + i * 0.085;
-      o.frequency.setValueAtTime(f, t0);
-      o.frequency.exponentialRampToValueAtTime(f * 0.78, t0 + 0.075);
-      const lp = this.ctx!.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 2200;
-      g.gain.setValueAtTime(0.001, t0);
-      g.gain.linearRampToValueAtTime(0.16, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
-      o.connect(lp);
-      lp.connect(g);
-      g.connect(rig.panner);
-      o.start(t0);
-      o.stop(t0 + 0.09);
-    });
-  }
 
   playHudClick(freq = 580) {
     if (!this.ctx || this.ctx.state !== 'running' || this.muted || this.panicMuted || !this.sfxBus) return;

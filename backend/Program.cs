@@ -303,7 +303,7 @@ static bool IsAdmin(HttpRequest r, ChatSecretsService sec) => sec.CheckAdmin(r.H
 
 api.MapGet("/admin/status", async (HttpRequest http, ChatSecretsService sec, GeminiChatService chat) =>
 {
-    if (!sec.HasAdminKey) return Results.Ok(new { adminSet = false, keyConfigured = false, model = sec.Model, geminiStatus = "locked" });
+    if (!sec.HasAdminKey) return Results.Ok(new { adminSet = false, keyConfigured = chat.HasKey, model = sec.Model, geminiStatus = chat.HasKey ? await chat.GetStatusAsync() : "no_key" });
     if (!IsAdmin(http, sec)) return Results.Unauthorized();
     var st = await chat.GetStatusAsync();
     return Results.Ok(new { adminSet = true, keyConfigured = chat.HasKey, model = sec.Model, geminiStatus = st });
@@ -320,7 +320,7 @@ api.MapPost("/admin/init", (AdminInitRequest req, ChatSecretsService sec) =>
 
 api.MapPost("/admin/gemini-key", async (GeminiKeyRequest req, HttpRequest http, ChatSecretsService sec, GeminiChatService chat) =>
 {
-    if (!IsAdmin(http, sec)) return Results.Unauthorized();
+    if (sec.HasAdminKey && !IsAdmin(http, sec)) return Results.Unauthorized();
     var model = (req.Model ?? "").Trim();
     sec.SaveGemini((req.ApiKey ?? "").Trim(), model.Length > 0 ? model : null);
     chat.InvalidateStatus();

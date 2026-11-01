@@ -302,6 +302,38 @@ public class LabStateService
                     new() { Status = RoadmapStatus.TrongMo, Description = "Web UI Digital Twin 3D theo dõi góc khớp và nhiệt độ từng motor." },
                 }
             }
+        },
+        new DustyProject
+        {
+            Id = "amr-slam",
+            CodeName = "PRJ-AMR-SLAM",
+            Name = "AMR 4 Bánh Swerve Định Vị SLAM",
+            Tagline = "Đỉnh cao định vị LiDAR SLAM đa hướng 4 cụm bánh Swerve không cần băng từ. Thực tế: Đã bị dẹp luôn trạm sạc cố định nên chạy vòng vòng quanh bàn J.A.R.V.I.S. trong trạng thái trầm cảm tìm đường về nhà.",
+            GhostStatus = "Chạy vòng vòng mất định vị — 45% Hoàn thành",
+            DamageReport = "Rơi vỡ 1 cảm biến LiDAR 2D do cẩu thả khi bê ra bãi test, mất tích luôn trạm sạc DOCK-01.",
+            TimeParadox = "Dự kiến: 3 tháng | Thực tế đã ngâm: 6 tháng",
+            CompletionPercent = 45,
+            DustLevel = 70,
+            Smoking = false,
+            Position = new[] { 0.0, 0.0, 2.9 },
+            Roadmap = new Roadmap
+            {
+                Hardware = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Khung cơ khí 4 module Swerve Drive độc lập + SBC công nghiệp + Cảm biến LiDAR 2D." },
+                    new() { Status = RoadmapStatus.DangNgap, Description = "Mạch phân phối nguồn 24V cho hệ thống điều khiển động cơ (Steer BLDC + Drive BLDC)." },
+                },
+                Firmware = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Driver điều khiển Swerve Drive: độc lập góc lái + tốc độ lăn cho từng module bánh." },
+                    new() { Status = RoadmapStatus.DangNgap, Description = "Giao tiếp ROS2 micro-ROS trên vi điều khiển trung tâm (Thường xuyên bị mất gói tin qua UART)." },
+                },
+                Software = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Bản đồ Occupancy Grid Mapping bằng ROS2 Nav2 stack." },
+                    new() { Status = RoadmapStatus.TrongMo, Description = "Tính năng tự động né vật cản động bằng thuật toán DWA (Dynamic Window Approach) không tông vào nhân viên xưởng." },
+                }
+            }
         }
     };
 
@@ -314,6 +346,7 @@ public class LabStateService
         new() { Id = "g5", Component = "ESC 4-in-1 35A", Epitaph = "Phát sáng rực rỡ như pháo hoa, đúng 1 lần", CauseOfDeath = "Hàn ngược cực tụ bù lúc 2 giờ sáng", DiedAt = DateTime.UtcNow.AddMonths(-3) },
         new() { Id = "g6", Component = "Raspberry Pi 4 - 4GB", Epitaph = "Chết đứng trong tư thế boot kernel panic", CauseOfDeath = "Chạy YOLOv8 + Chrome 40 tab cùng lúc", DiedAt = DateTime.UtcNow.AddMonths(-2) },
         new() { Id = "g7", Component = "Servo MG996R x6", Epitaph = "Kêu rít như đàn nhị ma rồi im lặng vĩnh viễn", CauseOfDeath = "Bị ép gập 180° bởi thuật toán chưa kiểm chứng", DiedAt = DateTime.UtcNow.AddMonths(-1) },
+        new() { Id = "g10", Component = "Cảm biến LiDAR 2D RPLIDAR", Epitaph = "Quét 360° được hết mọi thứ trừ tương lai của nó", CauseOfDeath = "Rơi khỏi tay khi bê AMR ra bãi test", DiedAt = DateTime.UtcNow.AddDays(-15) },
         new() { Id = "g11", Component = "4x Opto PC817 (Module DI 24V)", Epitaph = "Cách ly quang học thành công... bằng cách tự nổ tung", CauseOfDeath = "Thợ điện đấu nhầm dây lửa 220VAC vào ngõ vào 24VDC", DiedAt = DateTime.UtcNow.AddDays(-12) },
         new() { Id = "g12", Component = "Chip PHY LAN8720A PROFINET", Epitaph = "Nhấp nháy đèn vàng lần cuối rồi tắt lịm", CauseOfDeath = "Xung sét cảm ứng từ biến tần 15kW đặt sát bên cạnh", DiedAt = DateTime.UtcNow.AddDays(-7) },
         new() { Id = "g13", Component = "Nguồn RTX 3060 Nuôi J.A.R.V.I.S.", Epitaph = "Cống hiến hết mình để render 1 câu chào buổi sáng", CauseOfDeath = "Sụt áp toàn hầm khi vừa chạy LLM vừa đun mì tôm", DiedAt = DateTime.UtcNow.AddDays(-2) },
@@ -327,6 +360,8 @@ public class LabStateService
         new() { Id = "r6", ProjectId = "sky-ghost", Author = "Thợ Tune PID Thất Nghiệp", Role = "Đồng Nghiệp Cũ", Text = "412 lần tune PID mà drone vẫn lắc theo nhạc sàn — vấn đề không nằm ở PID, nằm ở playlist.", At = DateTime.UtcNow.AddDays(-11) },
         new() { Id = "r9", ProjectId = "iron-biped", Author = "Nhà Đầu Tư Thiên Thần", Role = "Đã Rút Vốn", Text = "Pitch deck nói 'Optimus Prime tại gia'. Deliverable sau 1 năm: 1 cái đùi và 19 file CAD tên giống hệt nhau.", At = DateTime.UtcNow.AddDays(-20) },
         new() { Id = "r10", ProjectId = "iron-biped", Author = "Robot Trong Mô Phỏng", Role = "Nhân Chứng Sống", Text = "Tôi xác nhận trong mô phỏng nó đi được 3 bước rồi trồng cây chuối. Thuật toán cân bằng hoạt động... ngược.", At = DateTime.UtcNow.AddDays(-2) },
+        new() { Id = "r11", ProjectId = "amr-slam", Author = "Bản Đồ Occupancy Grid", Role = "Nạn Nhân Bị Quên", Text = "Nó vẽ tôi ra rồi quên luôn tôi là ai. Giờ trạm sạc cũng bị dẹp nên nó lượn quanh bàn J.A.R.V.I.S. cả ngày.", At = DateTime.UtcNow.AddDays(-5) },
+        new() { Id = "r12", ProjectId = "amr-slam", Author = "Chân Tủ Sắt", Role = "Nạn Nhân Tái Phạm", Text = "AMR quét LiDAR 360° rất kỹ càng rồi vẫn xoay bánh Swerve sát sàn sạt qua mũi giày kỹ sư.", At = DateTime.UtcNow.AddDays(-2) },
         new() { Id = "r13", ProjectId = "remote-io", Author = "Kỹ Sư Tủ Điện PLC", Role = "Nạn Nhân TIA Portal", Text = "Quảng cáo 'chuẩn Siemens ET 200SP nội địa', cắm cáp xanh PROFINET vào thì đèn đỏ BF chớp như đèn còi cảnh sát.", At = DateTime.UtcNow.AddDays(-6) },
         new() { Id = "r14", ProjectId = "remote-io", Author = "Thợ Đấu Tủ Ca 3", Role = "Người Thử Độ Bền Opto", Text = "Cầu đấu Push-in kẹt cứng đến mức rút sợi dây 0.75mm² ra thì bay luôn cả vỏ nhựa lẫn thanh ray DIN.", At = DateTime.UtcNow.AddDays(-3) },
         new() { Id = "r15", ProjectId = "jarvis-core", Author = "Tony Stark Hàng Shopee", Role = "Chủ Nhân Bị Phản Bội", Text = "Tôi hô 'J.A.R.V.I.S., bật đèn bàn hàn!' — nó im lặng 30 giây suy ngẫm triết học rồi tắt luôn aptomat tổng.", At = DateTime.UtcNow.AddDays(-4) },

@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -557,7 +557,7 @@ interface LabWorkbenchProps {
   hasChair?: boolean;
   chairOffset?: [number, number, number];
   chairRotation?: [number, number, number];
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 export function LabWorkbench({
