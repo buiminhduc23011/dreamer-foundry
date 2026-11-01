@@ -44,7 +44,24 @@ const MODEL_URLS = {
 
 export function ForkliftModel({ sagging }: GhostModelProps) {
   const { scene } = useGLTF(MODEL_URLS.forklift);
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+  const cloned = useMemo(() => {
+    const c = scene.clone(true);
+    // Tinh chỉnh vật liệu PBR tránh bị lóa trắng do phản xạ môi trường Studio
+    c.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        if (mat) {
+          if (mat.name === 'ForkliftPBR') {
+            mat.metalness = 0.25;
+            mat.roughness = 0.55;
+            mat.color.set('#f59e0b'); // Màu vàng công nghiệp Komatsu / Caterpillar
+            mat.needsUpdate = true;
+          }
+        }
+      }
+    });
+    return c;
+  }, [scene]);
   const fanRef = useRef<THREE.Mesh>(null);
   const holoOp = useFlickerOpacity(sagging, 0.55);
 
@@ -57,8 +74,8 @@ export function ForkliftModel({ sagging }: GhostModelProps) {
   });
 
   return (
-    <group rotation={[0, 0.88, 0]}>
-      <primitive object={cloned} position={[0, 0, 0]} scale={1} />
+    <group rotation={[0, 0.35, 0]} scale={0.76}>
+      <primitive object={cloned} position={[0, 0, 0]} />
 
       {/* Quạt quét thị giác máy tính OAK-1 W phía trước càng nâng (+Z) */}
       <mesh ref={fanRef} position={[0, 0.02, 0.88]} rotation={[-Math.PI / 2, 0, Math.PI * 0.18]}>

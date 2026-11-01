@@ -87,8 +87,10 @@ export function CameraRig() {
             amrChasing.current = true;
           } else {
             const [x, y, z] = p.position;
-            goal.current.set(x * 0.55, y + 1.9, z + 4.7);
-            goalTgt.current.set(x, y + 1.0, z);
+            const isVehicle = id === 'fork-eye' || id === 'ghost-agv';
+            const focusY = isVehicle ? y + 0.9 : y + 1.25;
+            goal.current.set(x * 0.55, focusY + 1.1, z + 4.6);
+            goalTgt.current.set(x, focusY, z);
             amrChasing.current = false;
           }
           driving.current = true;
