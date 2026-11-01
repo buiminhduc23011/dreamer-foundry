@@ -48,6 +48,7 @@ export function BadIdeasModal() {
   const open = useLabStore((s) => s.ideasOpen);
   const ideas = useLabStore((s) => s.badIdeas);
   const submit = useLabStore((s) => s.submitBadIdea);
+  const upvote = useLabStore((s) => s.upvoteIdea);
   const close = () => void useLabStore.getState().setIdeasOpen(false);
   const [title, setTitle] = useState('');
   const [by, setBy] = useState('');
@@ -93,12 +94,22 @@ export function BadIdeasModal() {
           </button>
         </div>
       </form>
-      {ideas.map((i) => (
-        <div key={i.id} className="mb-2 border border-holo/15 bg-void/60 p-3">
-          <div className="font-mono text-[10px] text-holo">{i.title}</div>
-          <div className="mt-1 flex justify-between font-mono text-[8px] text-holo/40">
-            <span>— {i.submittedBy}</span>
-            <span className={i.cursedLevel > 80 ? 'text-danger' : 'text-amber-glow'}>ĐỘ NGUY HIỂM: {i.cursedLevel}%</span>
+      {[...ideas].sort((a, b) => b.upvotes - a.upvotes).map((i) => (
+        <div key={i.id} className="mb-2 flex items-start gap-2 border border-holo/15 bg-void/60 p-3">
+          <button
+            onClick={() => upvote(i.id)}
+            className="flex shrink-0 flex-col items-center border border-holo/30 px-2 py-1 font-mono text-[9px] text-holo transition-colors hover:border-amber-glow hover:text-amber-glow"
+            title="Upvote ý tưởng tồi này"
+          >
+            <span>▲</span>
+            <span className="font-bold">{i.upvotes}</span>
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[10px] text-holo">{i.title}</div>
+            <div className="mt-1 flex justify-between font-mono text-[8px] text-holo/40">
+              <span>— {i.submittedBy}</span>
+              <span className={i.cursedLevel > 80 ? 'text-danger' : 'text-amber-glow'}>ĐỘ NGUY HIỂM: {i.cursedLevel}%</span>
+            </div>
           </div>
         </div>
       ))}

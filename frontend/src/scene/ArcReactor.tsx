@@ -2,8 +2,12 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-/** Central floor arc reactor — dims and gutters when the 5V rail sags. */
-export function ArcReactor({ sagging }: { sagging: boolean }) {
+const CYAN = new THREE.Color('#2ee6ff');
+const AMBER = new THREE.Color('#ffb02e');
+const tmpColor = new THREE.Color();
+
+/** Central floor arc reactor — dims and gutters when the 5V rail sags; amber khi brownout test. */
+export function ArcReactor({ sagging, brownout }: { sagging: boolean; brownout: boolean }) {
   const core = useRef<THREE.Mesh>(null);
   const ring1 = useRef<THREE.Mesh>(null);
   const ring2 = useRef<THREE.Mesh>(null);
@@ -12,13 +16,17 @@ export function ArcReactor({ sagging }: { sagging: boolean }) {
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    const flicker = sagging
+    const flicker = sagging || brownout
       ? 0.25 + Math.random() * 0.35
       : 0.9 + 0.1 * Math.sin(t * 3.7) + 0.05 * Math.sin(t * 11.3);
     if (ring1.current) ring1.current.rotation.z = t * 0.6;
     if (ring2.current) ring2.current.rotation.z = -t * 0.35;
-    if (light.current) light.current.intensity = 14 * flicker;
-    if (coreMat.current) coreMat.current.color.setScalar(0).setRGB(0.18 * flicker, 0.9 * flicker, 1 * flicker);
+    tmpColor.lerpColors(CYAN, AMBER, brownout ? 0.8 : 0).multiplyScalar(flicker);
+    if (light.current) {
+      light.current.intensity = 14 * flicker;
+      light.current.color.lerpColors(CYAN, AMBER, brownout ? 0.8 : 0);
+    }
+    if (coreMat.current) coreMat.current.color.copy(tmpColor);
     if (core.current) {
       const s = 1 + Math.sin(t * 4) * 0.03;
       core.current.scale.setScalar(s);

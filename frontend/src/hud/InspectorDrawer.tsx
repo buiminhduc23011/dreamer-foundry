@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { selectProject, useLabStore } from '../store/labStore';
 import type { RoadmapItem, RoadmapStatus } from '../types';
 
-type TabKey = 'hardware' | 'firmware' | 'software';
-const TABS: { key: TabKey; label: string }[] = [
+type LayerKey = 'hardware' | 'firmware' | 'software';
+type MainTab = 'roadmap' | 'roasts' | 'ideas';
+
+const LAYERS: { key: LayerKey; label: string }[] = [
   { key: 'hardware', label: '🔧 HARDWARE' },
   { key: 'firmware', label: '💾 FIRMWARE' },
   { key: 'software', label: '🖥️ SOFTWARE' },
@@ -16,6 +18,8 @@ const statusStyle: Record<RoadmapStatus, { tag: string; cls: string }> = {
 };
 
 const numToStatus: RoadmapStatus[] = ['Xong', 'DangNgap', 'TrongMo'];
+
+const ROLE_SUGGESTIONS = ['Người Qua Đường', 'Thánh Xúi Dại', 'Kỹ Sư Bếp Núc', 'Nạn Nhân Tái Phạm', 'Nhà Nghiên Cứu Bụi', 'Chủ Nợ Linh Kiện'];
 
 function RoadmapRow({ item }: { item: RoadmapItem }) {
   // SignalR may deliver numeric enums if protocol options ever regress — normalize defensively.
@@ -30,6 +34,159 @@ function RoadmapRow({ item }: { item: RoadmapItem }) {
   );
 }
 
+/* ---------------- Tab 1: 3-layer roadmap ---------------- */
+function RoadmapTab({ project }: { project: NonNullable<ReturnType<typeof selectProject>> }) {
+  const [layer, setLayer] = useState<LayerKey>('hardware');
+  return (
+    <>
+      <div className="mb-2 flex gap-1">
+        {LAYERS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setLayer(t.key)}
+            className={`flex-1 border px-1 py-1.5 font-mono text-[8px] transition-colors ${
+              layer === t.key ? 'border-holo bg-holo/15 text-holo' : 'border-holo/20 text-holo/50 hover:border-holo/50'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <ul className="min-h-[120px]">
+        {project.roadmap[layer].map((item, i) => (
+          <RoadmapRow key={i} item={item} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/* ---------------- Tab 2: Góc cà khịa ---------------- */
+function RoastsTab({ projectId }: { projectId: string }) {
+  const roasts = useLabStore((s) => s.roasts[projectId]);
+  const loadRoasts = useLabStore((s) => s.loadRoasts);
+  const submitRoast = useLabStore((s) => s.submitRoast);
+  const [author, setAuthor] = useState('');
+  const [role, setRole] = useState('');
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    void loadRoasts(projectId);
+  }, [projectId, loadRoasts]);
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    void submitRoast(projectId, author.trim(), role.trim(), text.trim());
+    setText('');
+  };
+
+  return (
+    <>
+      <form onSubmit={onSubmit} className="mb-3 border border-holo/15 bg-void/60 p-2">
+        <div className="mb-1.5 flex gap-1.5">
+          <input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            maxLength={40}
+            placeholder="Bí danh"
+            className="w-1/2 border border-holo/30 bg-void/80 px-1.5 py-1 font-mono text-[9px] text-holo placeholder:text-holo/30 focus:border-holo focus:outline-none"
+          />
+          <input
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            maxLength={40}
+            list="roast-roles"
+            placeholder="Role tag (vd: Thánh Xúi Dại)"
+            className="w-1/2 border border-holo/30 bg-void/80 px-1.5 py-1 font-mono text-[9px] text-holo placeholder:text-holo/30 focus:border-holo focus:outline-none"
+          />
+          <datalist id="roast-roles">
+            {ROLE_SUGGESTIONS.map((r) => <option key={r} value={r} />)}
+          </datalist>
+        </div>
+        <div className="flex gap-1.5">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={300}
+            placeholder="Cà khịa dự án này một phát đi…"
+            className="flex-1 border border-holo/30 bg-void/80 px-1.5 py-1 font-mono text-[9px] text-holo placeholder:text-holo/30 focus:border-holo focus:outline-none"
+          />
+          <button type="submit" className="border border-holo/50 px-2 py-1 font-mono text-[9px] font-bold text-holo hover:bg-holo/15">
+            GỬI
+          </button>
+        </div>
+      </form>
+      <div className="space-y-2">
+        {(roasts ?? []).map((r) => (
+          <div key={r.id} className="border border-holo/15 bg-void/60 p-2">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="font-mono text-[9px] font-bold text-holo">{r.author}</span>
+              <span className="border border-amber-glow/40 px-1 font-mono text-[7px] text-amber-glow">{r.role}</span>
+            </div>
+            <p className="font-mono text-[9px] leading-relaxed text-holo/75">"{r.text}"</p>
+          </div>
+        ))}
+        {(roasts ?? []).length === 0 && (
+          <div className="font-mono text-[9px] text-holo/40">Chưa có ai cà khịa. Dự án đang được… thương hại.</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ---------------- Tab 3: Đấu trường xúi dại ---------------- */
+function IdeasTab() {
+  const ideas = useLabStore((s) => s.badIdeas);
+  const upvoteIdea = useLabStore((s) => s.upvoteIdea);
+  const setIdeasOpen = useLabStore((s) => s.setIdeasOpen);
+
+  return (
+    <>
+      <button
+        onClick={() => void setIdeasOpen(true)}
+        className="mb-3 w-full border border-amber-glow/40 px-2 py-1.5 font-mono text-[9px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/15"
+      >
+        + XÚI DẠI Ý TƯỞNG MỚI →
+      </button>
+      <div className="space-y-2">
+        {[...ideas].sort((a, b) => b.upvotes - a.upvotes).map((i, rank) => (
+          <div key={i.id} className="flex items-start gap-2 border border-holo/15 bg-void/60 p-2">
+            <button
+              onClick={() => upvoteIdea(i.id)}
+              className="flex shrink-0 flex-col items-center border border-holo/30 px-1.5 py-1 font-mono text-[9px] text-holo transition-colors hover:border-amber-glow hover:text-amber-glow"
+              title="Upvote ý tưởng tồi này"
+            >
+              <span>▲</span>
+              <span className="font-bold">{i.upvotes}</span>
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="font-mono text-[9px] leading-relaxed text-holo/85">
+                {rank === 0 && i.upvotes > 0 && <span className="mr-1 text-danger">☠</span>}
+                {i.title}
+              </div>
+              <div className="mt-1 flex justify-between font-mono text-[7px] text-holo/40">
+                <span>— {i.submittedBy}</span>
+                <span className={i.cursedLevel > 80 ? 'text-danger' : 'text-amber-glow'}>NGUY HIỂM {i.cursedLevel}%</span>
+              </div>
+            </div>
+          </div>
+        ))}
+        {ideas.length === 0 && (
+          <div className="font-mono text-[9px] text-holo/40">Đấu trường trống. Kỹ sư đang an toàn… tạm thời.</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ---------------- Deep Inspection Drawer ---------------- */
+const MAIN_TABS: { key: MainTab; label: string }[] = [
+  { key: 'roadmap', label: '📋 ROADMAP' },
+  { key: 'roasts', label: '💬 CÀ KHỊA' },
+  { key: 'ideas', label: '💡 XÚI DẠI' },
+];
+
 export function InspectorDrawer() {
   const project = useLabStore(selectProject);
   const select = useLabStore((s) => s.select);
@@ -37,7 +194,7 @@ export function InspectorDrawer() {
   const bonk = useLabStore((s) => s.bonk);
   const cleanDust = useLabStore((s) => s.cleanDust);
   const boom = useLabStore((s) => s.boom);
-  const [tab, setTab] = useState<TabKey>('hardware');
+  const [tab, setTab] = useState<MainTab>('roadmap');
 
   if (!project) return null;
 
@@ -87,37 +244,36 @@ export function InspectorDrawer() {
           <span className="text-danger/90">{project.timeParadox}</span>
         </div>
 
-        {/* roadmap tabs */}
-        <div className="mb-2 flex gap-1">
-          {TABS.map((t) => (
+        {/* main tabs */}
+        <div className="mb-3 flex gap-1 border-b border-holo/15 pb-2">
+          {MAIN_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 border px-1 py-1.5 font-mono text-[8px] transition-colors ${
-                tab === t.key ? 'border-holo bg-holo/15 text-holo' : 'border-holo/20 text-holo/50 hover:border-holo/50'
+                tab === t.key ? 'border-amber-glow/60 bg-amber-glow/10 text-amber-glow' : 'border-holo/20 text-holo/50 hover:border-holo/50'
               }`}
             >
               {t.label}
             </button>
           ))}
         </div>
-        <ul className="min-h-[120px]">
-          {project.roadmap[tab].map((item, i) => (
-            <RoadmapRow key={i} item={item} />
-          ))}
-        </ul>
+
+        {tab === 'roadmap' && <RoadmapTab project={project} />}
+        {tab === 'roasts' && <RoastsTab projectId={project.id} />}
+        {tab === 'ideas' && <IdeasTab />}
       </div>
 
-      {/* action buttons */}
+      {/* action buttons — SignalR backed */}
       <div className="mt-auto grid grid-cols-2 gap-1.5 border-t border-holo/20 p-3">
-        <button onClick={() => cleanDust(project.id)} className="border border-holo/40 px-2 py-2 font-mono text-[9px] text-holo transition-colors hover:bg-holo/15">
-          💨 XỊT KHÍ NÉN THỔI BỤI
-        </button>
         <button onClick={() => incense(project.id)} className="hud-panel-amber border px-2 py-2 font-mono text-[9px] text-amber-incense transition-colors hover:bg-amber-glow/15">
-          🕯️ THẮP HƯƠNG ĐỘ TRÌ
+          �️ THẮP HƯƠNG ĐỘ TRÌ
         </button>
         <button onClick={() => bonk(project.id)} className="border border-holo/40 px-2 py-2 font-mono text-[9px] text-holo transition-colors hover:bg-holo/15">
-          🔨 GÕ MỎ HÀN GIỤC TIẾN ĐỘ
+          � GÕ ĐẦU GIỤC TIẾN ĐỘ
+        </button>
+        <button onClick={() => cleanDust(project.id)} className="border border-holo/40 px-2 py-2 font-mono text-[9px] text-holo transition-colors hover:bg-holo/15">
+          � XỊT KHÍ NÉN THỔI BỤI
         </button>
         <button onClick={() => boom(project.id)} className="border border-danger/50 px-2 py-2 font-mono text-[9px] text-danger transition-colors hover:bg-danger/15">
           💥 TEST MOSFET (NỔ)

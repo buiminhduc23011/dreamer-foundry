@@ -59,9 +59,24 @@ export interface BadIdea {
   title: string;
   submittedBy: string;
   cursedLevel: number;
+  upvotes: number;
   submittedAt: string;
+}
+
+/** Một phát cà khịa cộng đồng kèm role tag tự phong. */
+export interface RoastComment {
+  id: string;
+  projectId: string;
+  author: string;
+  role: string;
+  text: string;
+  at: string;
 }
 
 export type ConnectionMode = 'connecting' | 'live' | 'mock';
 
 export type FxType = 'incense' | 'dust' | 'bonk' | 'boom';
+
+/** Điểm dừng của cinematic tour — id dự án hoặc lõi Arc Reactor. */
+export type TourFocus = string;
+export const REACTOR_FOCUS = 'reactor';

@@ -1,12 +1,12 @@
-using DustyStarkLab.Hubs;
-using DustyStarkLab.Models;
+using GhostLab.Hubs;
+using GhostLab.Models;
 using Microsoft.AspNetCore.SignalR;
 
-namespace DustyStarkLab.Services;
+namespace GhostLab.Services;
 
 /// <summary>
 /// The cruel physics of an abandoned lab: dust accumulates forever,
-/// and the budget 5V rail randomly sags to 3.1V, dimming every hologram.
+/// and the budget 5V rail randomly sags — or gets yanked down by a brownout test.
 /// </summary>
 public class DustAccumulationService : BackgroundService
 {
@@ -15,12 +15,25 @@ public class DustAccumulationService : BackgroundService
     private readonly ILogger<DustAccumulationService> _log;
     private bool _sagging;
     private int _sagTicksRemaining;
+    private DateTime? _manualSagUntil;
 
     public DustAccumulationService(LabStateService state, IHubContext<LabHub> hub, ILogger<DustAccumulationService> log)
     {
         _state = state;
         _hub = hub;
         _log = log;
+    }
+
+    /// <summary>Kéo rail xuống `volts` trong `seconds` giây — phục vụ nút Test Quá Tải trên HUD.</summary>
+    public void TriggerBrownout(double volts, double seconds)
+    {
+        _state.Mutate(() =>
+        {
+            _state.Stats.Voltage = volts;
+            _state.Stats.VoltageSagging = true;
+            return 0;
+        });
+        _manualSagUntil = DateTime.UtcNow.AddSeconds(seconds);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -36,14 +49,25 @@ public class DustAccumulationService : BackgroundService
                         p.DustLevel = Math.Min(100, p.DustLevel + 0.3 + Random.Shared.NextDouble() * 0.4);
 
                     LabEvent? evt = null;
-                    if (_sagging)
+                    if (_manualSagUntil is { } until)
+                    {
+                        // Sag chủ động từ nút brownout — hết hạn thì trả rail về 5V.
+                        if (DateTime.UtcNow >= until)
+                        {
+                            _manualSagUntil = null;
+                            _state.Stats.Voltage = 5.0;
+                            _state.Stats.VoltageSagging = false;
+                            evt = new LabEvent { Type = "power", Message = "GHOSTLAB TELEMETRY: brownout test kết thúc — rail hồi 5.0V. Cầu chì sống sót." };
+                        }
+                    }
+                    else if (_sagging)
                     {
                         if (--_sagTicksRemaining <= 0)
                         {
                             _sagging = false;
                             _state.Stats.Voltage = 5.0;
                             _state.Stats.VoltageSagging = false;
-                            evt = new LabEvent { Type = "power", Message = "J.A.R.V.I.S.: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc." };
+                            evt = new LabEvent { Type = "power", Message = "GHOSTLAB TELEMETRY: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc." };
                         }
                     }
                     else if (Random.Shared.NextDouble() < 0.06)

@@ -8,7 +8,10 @@ import type {
   GraveyardEntry,
   LabEvent,
   LabStats,
+  RoastComment,
+  TourFocus,
 } from '../types';
+import { REACTOR_FOCUS } from '../types';
 
 const MAX_FEED = 40;
 const MAX_EXCUSES = 8;
@@ -36,6 +39,14 @@ interface LabStore {
   ideasOpen: boolean;
   graveyard: GraveyardEntry[];
   badIdeas: BadIdea[];
+  roasts: Record<string, RoastComment[]>;
+
+  /** Cinematic auto-tour — idle 6s là bật, đổi focus mỗi 12s. */
+  tourActive: boolean;
+  tourFocusId: TourFocus | null;
+  lastActivity: number;
+  /** Brownout test — đèn lab chuyển amber trong ~2s. */
+  brownoutActive: boolean;
 
   /** Per-project FX nonces — bumped every time a lab event lands, watched by 3D components. */
   fx: Record<string, Record<FxType, number>>;
@@ -49,11 +60,20 @@ interface LabStore {
   bonk: (id: string) => void;
   cleanDust: (id: string) => void;
   boom: (id: string) => void;
+  cleanAll: () => void;
+  brownout: () => void;
   requestExcuse: () => Promise<void>;
   togglePanic: () => void;
   setGraveyardOpen: (open: boolean) => Promise<void>;
   setIdeasOpen: (open: boolean) => Promise<void>;
   submitBadIdea: (title: string, by: string, cursed: number) => Promise<void>;
+  upvoteIdea: (id: string) => void;
+  loadRoasts: (projectId: string) => Promise<void>;
+  submitRoast: (projectId: string, author: string, role: string, text: string) => Promise<void>;
+
+  /** Ghi nhận tương tác người dùng — reset idle timer, cắt tour ngay. */
+  recordActivity: () => void;
+  setTour: (active: boolean, focus: TourFocus | null) => void;
 }
 
 export const useLabStore = create<LabStore>((set, get) => ({
@@ -64,7 +84,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
   stats: null,
   feed: [],
   excuseLog: [
-    { text: 'J.A.R.V.I.S. Ngáo khởi động. Đang quét phòng lab... phát hiện 99% bụi, 1% hy vọng.', at: new Date() },
+    { text: 'GHOSTLAB TELEMETRY // AI LOG khởi động. Đang quét phòng lab... phát hiện 99% bụi, 1% hy vọng.', at: new Date() },
   ],
   excuseBusy: false,
   selectedId: null,
@@ -73,6 +93,11 @@ export const useLabStore = create<LabStore>((set, get) => ({
   ideasOpen: false,
   graveyard: [],
   badIdeas: [],
+  roasts: {},
+  tourActive: false,
+  tourFocusId: null,
+  lastActivity: Date.now(),
+  brownoutActive: false,
   fx: {},
   shakeNonce: 0,
   flashNonce: 0,
@@ -84,6 +109,11 @@ export const useLabStore = create<LabStore>((set, get) => ({
       onProjects: (projects) => set({ projects }),
       onStats: (stats) => set({ stats }),
       onMode: (mode) => set({ mode }),
+      onBadIdeas: (badIdeas) => set({ badIdeas }),
+      onRoast: (roast) =>
+        set((s) => ({
+          roasts: { ...s.roasts, [roast.projectId]: [roast, ...(s.roasts[roast.projectId] ?? [])] },
+        })),
       onEvent: (evt) =>
         set((s) => {
           const fxType = evtTypeToFx[evt.type];
@@ -93,6 +123,13 @@ export const useLabStore = create<LabStore>((set, get) => ({
             const cur = fx[evt.projectId] ?? { incense: 0, dust: 0, bonk: 0, boom: 0 };
             fx[evt.projectId] = { ...cur, [fxType]: cur[fxType] + 1 };
           }
+          // Xịt khí nén toàn lab → mọi pedestal đồng loạt bắn bụi.
+          if (evt.type === 'clean-all') {
+            for (const p of s.projects) {
+              const cur = fx[p.id] ?? { incense: 0, dust: 0, bonk: 0, boom: 0 };
+              fx[p.id] = { ...cur, dust: cur.dust + 1 };
+            }
+          }
           if (evt.type === 'bonk') shakeNonce++;
           if (evt.type === 'boom') flashNonce++;
           return { feed: [evt, ...s.feed].slice(0, MAX_FEED), fx, shakeNonce, flashNonce };
@@ -100,12 +137,23 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }).then((client) => set({ client }));
   },
 
-  select: (id) => set({ selectedId: id }),
+  select: (id) => {
+    set({ selectedId: id });
+    get().recordActivity();
+  },
 
   incense: (id) => void get().client?.incense(id),
   bonk: (id) => void get().client?.bonk(id),
   cleanDust: (id) => void get().client?.cleanDust(id),
   boom: (id) => void get().client?.boom(id),
+  cleanAll: () => void get().client?.cleanAll(),
+
+  brownout: () => {
+    if (get().brownoutActive) return;
+    set({ brownoutActive: true });
+    void get().client?.brownout();
+    setTimeout(() => set({ brownoutActive: false }), 2100);
+  },
 
   requestExcuse: async () => {
     const { client, excuseBusy } = get();
@@ -119,10 +167,14 @@ export const useLabStore = create<LabStore>((set, get) => ({
     }
   },
 
-  togglePanic: () => set((s) => ({ panicMode: !s.panicMode })),
+  togglePanic: () => {
+    set((s) => ({ panicMode: !s.panicMode }));
+    get().recordActivity();
+  },
 
   setGraveyardOpen: async (open) => {
     set({ graveyardOpen: open });
+    get().recordActivity();
     if (open) {
       const g = await get().client?.getGraveyard();
       if (g) set({ graveyard: g });
@@ -130,6 +182,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
   },
   setIdeasOpen: async (open) => {
     set({ ideasOpen: open });
+    get().recordActivity();
     if (open) {
       const ideas = await get().client?.getBadIdeas();
       if (ideas) set({ badIdeas: ideas });
@@ -137,9 +190,40 @@ export const useLabStore = create<LabStore>((set, get) => ({
   },
   submitBadIdea: async (title, by, cursed) => {
     const idea = await get().client?.postBadIdea(title, by, cursed);
-    if (idea) set((s) => ({ badIdeas: [idea, ...s.badIdeas] }));
+    if (idea) set((s) => ({ badIdeas: s.badIdeas.some((b) => b.id === idea.id) ? s.badIdeas : [idea, ...s.badIdeas] }));
   },
+  upvoteIdea: (id) => void get().client?.upvoteIdea(id),
+
+  loadRoasts: async (projectId) => {
+    const list = await get().client?.getRoasts(projectId);
+    if (list) set((s) => ({ roasts: { ...s.roasts, [projectId]: list } }));
+  },
+  submitRoast: async (projectId, author, role, text) => {
+    const roast = await get().client?.postRoast(projectId, author, role, text);
+    if (roast) {
+      set((s) => {
+        const cur = s.roasts[projectId] ?? [];
+        return cur.some((r) => r.id === roast.id)
+          ? s
+          : { roasts: { ...s.roasts, [projectId]: [roast, ...cur] } };
+      });
+    }
+  },
+
+  recordActivity: () => {
+    const s = get();
+    if (s.tourActive) set({ tourActive: false, tourFocusId: null, lastActivity: Date.now() });
+    else set({ lastActivity: Date.now() });
+  },
+
+  setTour: (active, focus) => set({ tourActive: active, tourFocusId: focus }),
 }));
 
 export const selectProject = (s: LabStore) =>
   s.projects.find((p) => p.id === s.selectedId) ?? null;
+
+/** Focus hiện tại của tour — project hoặc lõi reactor. */
+export const selectTourProject = (s: LabStore) =>
+  s.tourFocusId && s.tourFocusId !== REACTOR_FOCUS
+    ? s.projects.find((p) => p.id === s.tourFocusId) ?? null
+    : null;

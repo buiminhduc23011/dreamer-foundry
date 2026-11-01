@@ -5,9 +5,11 @@ const evtIcon: Record<string, string> = {
   incense: '🕯️',
   bonk: '🔨',
   'clean-dust': '💨',
+  'clean-all': '💨',
   boom: '💥',
   power: '⚡',
   'bad-idea': '💡',
+  roast: '💬',
   system: '◈',
 };
 
@@ -23,11 +25,11 @@ export function ExcuseConsole() {
   }, [feed.length, excuseLog.length]);
 
   return (
-    <aside className="hud-panel pointer-events-auto fixed bottom-3 left-3 z-40 flex w-[380px] max-w-[44vw] flex-col">
+    <aside className="hud-panel pointer-events-auto fixed bottom-[216px] left-3 z-40 flex w-[430px] max-w-[46vw] flex-col">
       <div className="flex items-center justify-between border-b border-holo/20 px-3 py-2">
         <div>
-          <div className="hud-title holo-text text-[10px] font-bold">J.A.R.V.I.S. NGÁO</div>
-          <div className="font-mono text-[8px] text-holo/50">BÁO CÁO LÝ DO TRỄ TIẾN ĐỘ</div>
+          <div className="hud-title holo-text text-[10px] font-bold">GHOSTLAB TELEMETRY</div>
+          <div className="font-mono text-[8px] tracking-[0.2em] text-holo/50">AI LOG // BÁO CÁO LÝ DO TRỄ TIẾN ĐỘ</div>
         </div>
         <button
           onClick={() => void requestExcuse()}
@@ -38,7 +40,7 @@ export function ExcuseConsole() {
         </button>
       </div>
 
-      <div ref={scrollRef} className="max-h-56 overflow-y-auto px-3 py-2">
+      <div ref={scrollRef} className="max-h-40 overflow-y-auto px-3 py-2">
         {/* latest excuse, highlighted */}
         {excuseLog.slice(0, 2).map((e, i) => (
           <div key={e.at.getTime() + i} className={`log-line mb-2 font-mono text-[10px] leading-relaxed ${i === 0 ? 'amber-text' : 'text-holo/70'}`}>

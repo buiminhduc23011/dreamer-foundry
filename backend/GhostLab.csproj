@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>DustyStarkLab</RootNamespace>
-    <AssemblyName>DustyStarkLab</AssemblyName>
+    <RootNamespace>GhostLab</RootNamespace>
+    <AssemblyName>GhostLab</AssemblyName>
   </PropertyGroup>
 
 </Project>

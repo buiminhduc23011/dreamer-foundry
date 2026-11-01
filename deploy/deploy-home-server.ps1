@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Deploy Ke Mong Mo // Dusty Stark Lab (backend .NET 8 + frontend React/Three.js) to home-server.
+    Deploy GHOSTLAB // Vaporware Graveyard (backend .NET 8 + frontend React/Three.js) to home-server.
 
 .DESCRIPTION
     1. Build frontend (Vite) -> dist/
@@ -40,7 +40,7 @@ $Ssh = Resolve-Tool 'ssh'
 Write-Host "scp: $Scp`nssh: $Ssh" -ForegroundColor DarkGray
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " Deploy DUSTY STARK LAB -> $HostName" -ForegroundColor Cyan
+Write-Host " Deploy GHOSTLAB -> $HostName" -ForegroundColor Cyan
 Write-Host "   Dir: $TargetDir | Service: $ServiceName | Port: $Port" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
@@ -55,7 +55,7 @@ try {
         Write-Host "`n[2/5] Publish backend (self-contained linux-x64)..." -ForegroundColor Yellow
         $pub = Join-Path $RepoRoot 'publish\linux-x64'
         if (Test-Path $pub) { try { Remove-Item $pub -Recurse -Force -ErrorAction SilentlyContinue } catch {} }
-        dotnet publish (Join-Path $RepoRoot 'backend\DustyStarkLab.csproj') `
+        dotnet publish (Join-Path $RepoRoot 'backend\GhostLab.csproj') `
             -c Release -r linux-x64 --self-contained true -o $pub
         if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
@@ -90,7 +90,7 @@ echo "Installing to `$DIR..."
 echo '$SudoPass' | sudo -S mkdir -p "`$DIR"
 echo '$SudoPass' | sudo -S rsync -av --delete --exclude='lab-state.json' /tmp/ghostlab-update/ "`$DIR/"
 echo '$SudoPass' | sudo -S chown -R ducne:ducne "`$DIR"
-chmod +x "`$DIR/DustyStarkLab"
+chmod +x "`$DIR/GhostLab"
 
 echo "Installing systemd unit `$SVC..."
 echo '$SudoPass' | sudo -S cp /tmp/ghostlab-update/ghostlab.service /etc/systemd/system/`$SVC.service

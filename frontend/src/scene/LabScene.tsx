@@ -6,20 +6,30 @@ import { useLabStore } from '../store/labStore';
 import { AmbientDust } from './particles';
 import { ArcReactor } from './ArcReactor';
 import { Workbench } from './Workbench';
-import { BipedModel, DroneModel, ForkliftModel } from './GhostModels';
+import { AgvModel, BipedModel, DroneModel, ForkliftModel, FumeExtractorModel } from './GhostModels';
 import { CameraRig } from './CameraRig';
 
 /* ---------- overhead fluorescents that stutter on bad power ---------- */
-function FlickerSpot({ position, sagging }: { position: [number, number, number]; sagging: boolean }) {
+function FlickerSpot({ position, sagging, brownout }: { position: [number, number, number]; sagging: boolean; brownout: boolean }) {
   const light = useRef<THREE.SpotLight>(null);
   const cone = useRef<THREE.Mesh>(null);
   const seed = useMemo(() => Math.random() * 100, []);
+  const color = useMemo(() => new THREE.Color('#bfe9ff'), []);
+  const amber = useMemo(() => new THREE.Color('#ffb02e'), []);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime + seed;
     const buzz = Math.sin(t * 31) * Math.sin(t * 7.7) > -0.92 ? 1 : 0.15;
-    const sag = sagging ? 0.3 + Math.random() * 0.4 : 1;
-    if (light.current) light.current.intensity = 30 * buzz * sag;
-    if (cone.current) (cone.current.material as THREE.MeshBasicMaterial).opacity = 0.05 * buzz * sag;
+    // Brownout test: toàn lab chuyển amber và giật mạnh hơn sag thường.
+    const sag = brownout ? 0.25 + Math.random() * 0.55 : sagging ? 0.3 + Math.random() * 0.4 : 1;
+    if (light.current) {
+      light.current.intensity = 30 * buzz * sag;
+      light.current.color.lerpColors(color, amber, brownout ? 0.85 : 0);
+    }
+    if (cone.current) {
+      const m = cone.current.material as THREE.MeshBasicMaterial;
+      m.opacity = (brownout ? 0.08 : 0.05) * buzz * sag;
+      m.color.lerpColors(color, amber, brownout ? 0.85 : 0);
+    }
   });
   return (
     <group position={position}>
@@ -41,9 +51,9 @@ function FlickerSpot({ position, sagging }: { position: [number, number, number]
 function Bunker() {
   const debris = useMemo(
     () =>
-      Array.from({ length: 26 }, (_, i) => ({
-        x: (Math.random() - 0.5) * 16,
-        z: (Math.random() - 0.5) * 10 - 1,
+      Array.from({ length: 30 }, (_, i) => ({
+        x: (Math.random() - 0.5) * 17,
+        z: (Math.random() - 0.5) * 11 - 1,
         r: Math.random() * Math.PI,
         s: 0.04 + Math.random() * 0.08,
         c: i % 5 === 0 ? '#1d4a2a' : '#141a21',
@@ -74,7 +84,7 @@ function Bunker() {
         <meshStandardMaterial color="#070b12" roughness={0.9} />
       </mesh>
       {/* wall pipes */}
-      {[-6, -2.5, 1.5, 5.5].map((x, i) => (
+      {[-7.5, -4, -0.5, 3, 6.5].map((x, i) => (
         <mesh key={i} position={[x, 4.2, -9.3]}>
           <cylinderGeometry args={[0.09, 0.09, 8, 8]} />
           <meshStandardMaterial color="#10161e" metalness={0.6} roughness={0.6} />
@@ -88,17 +98,22 @@ function Bunker() {
         </mesh>
       ))}
       {/* cable droops */}
-      {[-4.5, -1.2, 2.8].map((x, i) => (
+      {[-5.5, -2.2, 1.8, 4.6].map((x, i) => (
         <mesh key={i} position={[x, 5.0, -3.5]} rotation={[0.5, 0, 0]}>
-          <torusGeometry args={[0.9 + i * 0.25, 0.025, 6, 16, Math.PI]} />
+          <torusGeometry args={[0.9 + (i % 3) * 0.25, 0.025, 6, 16, Math.PI]} />
           <meshStandardMaterial color="#0d141b" roughness={0.9} />
         </mesh>
       ))}
       {/* dead monitor stack on a side desk */}
-      <group position={[-7.5, 0, -3]}>
+      <group position={[-8.2, 0, -3]}>
         <mesh position={[0, 0.45, 0]}><boxGeometry args={[1.6, 0.9, 0.7]} /><meshStandardMaterial color="#0e141b" metalness={0.6} roughness={0.7} /></mesh>
         <mesh position={[0, 1.15, 0]} rotation={[0, 0.3, 0]}><boxGeometry args={[0.8, 0.5, 0.06]} /><meshStandardMaterial color="#05080d" /></mesh>
         <mesh position={[0, 1.15, 0.04]} rotation={[0, 0.3, 0]}><planeGeometry args={[0.7, 0.4]} /><meshBasicMaterial color="#0d2a33" /></mesh>
+      </group>
+      {/* thùng linh kiện lật úp bên phải */}
+      <group position={[8.2, 0, -3.4]} rotation={[0, -0.4, 0]}>
+        <mesh position={[0, 0.3, 0]}><boxGeometry args={[1.1, 0.6, 0.8]} /><meshStandardMaterial color="#1a232c" metalness={0.5} roughness={0.8} /></mesh>
+        <mesh position={[0.5, 0.12, 0.6]} rotation={[0.4, 0.5, 0.2]}><boxGeometry args={[0.5, 0.3, 0.4]} /><meshStandardMaterial color="#151d25" metalness={0.5} roughness={0.8} /></mesh>
       </group>
       {/* scattered fallen components */}
       {debris.map((p, i) => (
@@ -115,6 +130,7 @@ function Bunker() {
 function SceneContent() {
   const projects = useLabStore((s) => s.projects);
   const sagging = useLabStore((s) => s.stats?.voltageSagging ?? false);
+  const brownout = useLabStore((s) => s.brownoutActive);
   const select = useLabStore((s) => s.select);
 
   const byId = (id: string) => projects.find((p) => p.id === id);
@@ -132,16 +148,21 @@ function SceneContent() {
       </mesh>
 
       <Bunker />
-      <ArcReactor sagging={sagging} />
+      <ArcReactor sagging={sagging} brownout={brownout} />
       <AmbientDust />
 
-      <FlickerSpot position={[-5.2, 5.4, -1.2]} sagging={sagging} />
-      <FlickerSpot position={[0, 5.4, -4.4]} sagging={sagging} />
-      <FlickerSpot position={[5.2, 5.4, -1.2]} sagging={sagging} />
+      {projects.map((p) => (
+        <FlickerSpot key={`spot-${p.id}`} position={[p.position[0], 5.4, p.position[2]]} sagging={sagging} brownout={brownout} />
+      ))}
 
       {byId('fork-eye') && (
         <Workbench project={byId('fork-eye')!} sagging={sagging}>
           <ForkliftModel sagging={sagging} />
+        </Workbench>
+      )}
+      {byId('smoke-trap') && (
+        <Workbench project={byId('smoke-trap')!} sagging={sagging}>
+          <FumeExtractorModel sagging={sagging} />
         </Workbench>
       )}
       {byId('sky-ghost') && (
@@ -149,8 +170,13 @@ function SceneContent() {
           <DroneModel sagging={sagging} />
         </Workbench>
       )}
-      {byId('mark-biped') && (
-        <Workbench project={byId('mark-biped')!} sagging={sagging}>
+      {byId('ghost-agv') && (
+        <Workbench project={byId('ghost-agv')!} sagging={sagging}>
+          <AgvModel sagging={sagging} />
+        </Workbench>
+      )}
+      {byId('iron-biped') && (
+        <Workbench project={byId('iron-biped')!} sagging={sagging}>
           <BipedModel sagging={sagging} />
         </Workbench>
       )}

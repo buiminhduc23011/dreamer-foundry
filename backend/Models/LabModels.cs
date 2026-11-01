@@ -1,4 +1,4 @@
-namespace DustyStarkLab.Models;
+namespace GhostLab.Models;
 
 /// <summary>Roadmap task status. XONG = done, DANG NGAP = dozing off, TRONG MO = in dreams only.</summary>
 public enum RoadmapStatus
@@ -56,7 +56,19 @@ public class BadIdea
     public string Title { get; set; } = "";
     public string SubmittedBy { get; set; } = "Anonymous Enabler";
     public int CursedLevel { get; set; } = 50;
+    public int Upvotes { get; set; }
     public DateTime SubmittedAt { get; set; }
+}
+
+/// <summary>Một phát cà khịa của cộng đồng kèm role tag tự phong.</summary>
+public class RoastComment
+{
+    public string Id { get; set; } = "";
+    public string ProjectId { get; set; } = "";
+    public string Author { get; set; } = "Kỹ Sư Ẩn Danh";
+    public string Role { get; set; } = "Người Qua Đường";
+    public string Text { get; set; } = "";
+    public DateTime At { get; set; }
 }
 
 public class LabStats
@@ -81,3 +93,5 @@ public class LabEvent
 }
 
 public record BadIdeaRequest(string Title, string? SubmittedBy, int? CursedLevel);
+
+public record RoastRequest(string? Author, string? Role, string Text);

@@ -1,12 +1,14 @@
 import { useLabStore } from '../store/labStore';
 
-const dockItems = [
-  { id: 'fork-eye', label: 'FORK-EYE', icon: '🏗️' },
-  { id: 'sky-ghost', label: 'SKY-GHOST', icon: '🚁' },
-  { id: 'mark-biped', label: 'MARK-0.1', icon: '🦿' },
-];
+const ICONS: Record<string, string> = {
+  'fork-eye': '🏗️',
+  'smoke-trap': '🔥',
+  'sky-ghost': '🚁',
+  'ghost-agv': '�',
+  'iron-biped': '🦿',
+};
 
-/** Bottom-center quick nav — jump the camera to a pedestal. */
+/** Bottom-center quick nav — jump the camera to a pedestal (dock tự sinh theo roster). */
 export function NavDock() {
   const projects = useLabStore((s) => s.projects);
   const selectedId = useLabStore((s) => s.selectedId);
@@ -22,17 +24,15 @@ export function NavDock() {
       >
         ⌂ TỔNG QUAN
       </button>
-      {dockItems.map((d) => {
-        const p = projects.find((x) => x.id === d.id);
-        if (!p) return null;
-        const active = selectedId === d.id;
+      {projects.map((p) => {
+        const active = selectedId === p.id;
         return (
           <button
-            key={d.id}
-            onClick={() => select(active ? null : d.id)}
+            key={p.id}
+            onClick={() => select(active ? null : p.id)}
             className={`hud-panel px-3 py-2 font-mono text-[9px] transition-colors ${active ? 'bg-holo/15 text-holo' : 'text-holo/60 hover:text-holo'}`}
           >
-            {d.icon} {d.label}
+            {ICONS[p.id] ?? '👻'} {p.codeName.replace('PRJ-', '')}
             <span className="ml-1.5 text-[8px]" style={{ color: p.dustLevel > 80 ? '#ff4d5e' : '#ffb02e' }}>
               {Math.round(p.dustLevel)}%bụi
             </span>

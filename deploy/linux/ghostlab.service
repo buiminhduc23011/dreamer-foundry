@@ -1,12 +1,12 @@
 [Unit]
-Description=Ke Mong Mo // Dusty Stark Lab (.NET 8 + React 3D)
+Description=GHOSTLAB // Vaporware Graveyard (.NET 8 + React 3D)
 After=network.target
 
 [Service]
 Type=simple
 User=ducne
 WorkingDirectory=/opt/ghostlab
-ExecStart=/opt/ghostlab/DustyStarkLab
+ExecStart=/opt/ghostlab/GhostLab
 Restart=always
 RestartSec=5
 Environment=ASPNETCORE_ENVIRONMENT=Production

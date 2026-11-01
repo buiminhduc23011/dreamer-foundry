@@ -9,7 +9,10 @@ export function TopBar() {
   const togglePanic = useLabStore((s) => s.togglePanic);
   const setGraveyardOpen = useLabStore((s) => s.setGraveyardOpen);
   const setIdeasOpen = useLabStore((s) => s.setIdeasOpen);
-  const sagging = stats?.voltageSagging ?? false;
+  const brownout = useLabStore((s) => s.brownout);
+  const brownoutActive = useLabStore((s) => s.brownoutActive);
+  const cleanAll = useLabStore((s) => s.cleanAll);
+  const sagging = (stats?.voltageSagging ?? false) || brownoutActive;
 
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-stretch gap-2 p-3">
@@ -18,7 +21,7 @@ export function TopBar() {
         <img src="/dbi-logo.svg" alt="DBI" className="h-8 w-8 rounded-md" />
         <div>
           <div className="hud-title holo-text text-sm font-bold">GHOSTLAB</div>
-          <div className="font-mono text-[9px] tracking-[0.3em] text-holo/60">DUSTY STARK LAB v0.4-alpha</div>
+          <div className="font-mono text-[9px] tracking-[0.3em] text-holo/60">VAPORWARE GRAVEYARD v3.0</div>
         </div>
       </div>
 
@@ -40,7 +43,7 @@ export function TopBar() {
         <span className="whitespace-nowrap text-holo/80">
           ARC REACTOR:{' '}
           <b className={sagging ? 'text-danger animate-pulse' : 'text-emerald-300'}>
-            {stats?.voltage.toFixed(1) ?? '5.0'}V{sagging ? ' ⚠SAG' : ''}
+            {brownoutActive ? '3.2' : (stats?.voltage.toFixed(1) ?? '5.0')}V{sagging ? ' ⚠SAG' : ''}
           </b>
         </span>
         <span className="whitespace-nowrap text-holo/50">
@@ -48,8 +51,23 @@ export function TopBar() {
         </span>
       </div>
 
-      {/* action buttons */}
+      {/* lab hazard + action buttons */}
       <div className="pointer-events-auto flex gap-2">
+        <button
+          onClick={brownout}
+          disabled={brownoutActive}
+          className={`hud-panel px-3 py-2 font-mono text-[10px] transition-colors ${brownoutActive ? 'bg-amber-glow/20 text-amber-glow animate-pulse' : 'text-holo/90 hover:bg-holo/10'}`}
+          title="Test quá tải nguồn — sụt rail còn 3.2V trong 2 giây"
+        >
+          ⚡ QUÁ TẢI
+        </button>
+        <button
+          onClick={cleanAll}
+          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
+          title="Xịt khí nén vệ sinh toàn lab — bụi về 0%"
+        >
+          💨 XỊT BỤI
+        </button>
         <button
           onClick={() => void setGraveyardOpen(true)}
           className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
@@ -69,7 +87,7 @@ export function TopBar() {
           className="hud-panel hud-panel-amber px-3 py-2 font-mono text-[10px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/10"
           title="Quyền năng tối thượng của mọi kỹ sư"
         >
-          🚨 SẾP/VỢ ĐANG TỚI
+          🚨 SẾP/VỢ TỚI
         </button>
       </div>
     </header>

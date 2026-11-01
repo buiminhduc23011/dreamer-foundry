@@ -154,6 +154,33 @@ canvas {
   white-space: nowrap;
 }
 
+/* ---------- cinematic spec card — trượt vào từ mép phải ---------- */
+.spec-card {
+  animation: specCardIn 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes specCardIn {
+  from { opacity: 0; transform: translate(40px, -50%); }
+  to { opacity: 1; transform: translate(0, -50%); }
+}
+
+/* ---------- tour badge nhấp nháy ---------- */
+.tour-badge {
+  animation: tourBlink 1.4s steps(2, jump-none) infinite;
+}
+@keyframes tourBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ---------- serial cursor ---------- */
+.serial-cursor {
+  animation: cursorBlink 1s steps(2, jump-none) infinite;
+}
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* ---------- panic spreadsheet ---------- */
 .panic-cell {
   border: 1px solid #b8c4ce;

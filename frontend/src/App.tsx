@@ -6,6 +6,8 @@ import { InspectorDrawer } from './hud/InspectorDrawer';
 import { NavDock } from './hud/NavDock';
 import { BadIdeasModal, GraveyardModal } from './hud/Modals';
 import { PanicOverlay } from './hud/PanicOverlay';
+import { SerialMonitor } from './hud/SerialMonitor';
+import { SpecCard, TourBadge } from './hud/SpecCard';
 import { useLabStore } from './store/labStore';
 
 /** brief white-violet flash across the HUD when a MOSFET gives its life */
@@ -28,14 +30,18 @@ function BoomFlash() {
 export default function App() {
   const init = useLabStore((s) => s.init);
   const sagging = useLabStore((s) => s.stats?.voltageSagging ?? false);
+  const brownout = useLabStore((s) => s.brownoutActive);
 
   useEffect(() => init(), [init]);
 
   return (
-    <div className={`crt relative h-full w-full ${sagging ? 'voltage-sag' : ''}`}>
+    <div className={`crt relative h-full w-full ${sagging || brownout ? 'voltage-sag' : ''}`}>
       <LabScene />
       <TopBar />
+      <TourBadge />
+      <SpecCard />
       <ExcuseConsole />
+      <SerialMonitor />
       <InspectorDrawer />
       <NavDock />
       <GraveyardModal />

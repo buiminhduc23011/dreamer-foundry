@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
-using DustyStarkLab.Hubs;
-using DustyStarkLab.Models;
-using DustyStarkLab.Services;
+using GhostLab.Hubs;
+using GhostLab.Models;
+using GhostLab.Services;
 using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +14,9 @@ builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
      .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 builder.Services.AddSingleton<LabStateService>();
-builder.Services.AddHostedService<DustAccumulationService>();
+// Singleton + hosted wrapper để endpoint hazard gọi được TriggerBrownout.
+builder.Services.AddSingleton<DustAccumulationService>();
+builder.Services.AddHostedService(p => p.GetRequiredService<DustAccumulationService>());
 builder.Services.AddSignalR().AddJsonProtocol(o =>
     o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
@@ -84,7 +86,7 @@ api.MapPost("/projects/{id}/bonk", async (string id, LabStateService s, IHubCont
     await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
     {
         Type = "bonk", ProjectId = id,
-        Message = $"🔨 Cộp! {project.CodeName} vừa ăn một gõ mỏ hàn giục tiến độ. Áp lực người xem: {s.Stats.ViewerPressure}."
+        Message = $"🔨 Cộp! {project.CodeName} vừa ăn một gõ đầu giục tiến độ. Áp lực người xem: {s.Stats.ViewerPressure}."
     });
     return Results.Ok(project);
 });
@@ -133,6 +135,38 @@ api.MapPost("/projects/{id}/boom", async (string id, LabStateService s, IHubCont
     return Results.Ok(project);
 });
 
+// Xịt khí nén toàn lab — reset bụi mọi pedestal về 0%.
+api.MapPost("/clean-all", async (LabStateService s, IHubContext<LabHub> hub) =>
+{
+    s.Mutate(() =>
+    {
+        foreach (var p in s.Projects) p.DustLevel = 0;
+        return 0;
+    });
+
+    await hub.Clients.All.SendAsync(LabHub.ProjectUpdated, s.Projects);
+    await hub.Clients.All.SendAsync(LabHub.StatsUpdated, s.Stats);
+    await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
+    {
+        Type = "clean-all",
+        Message = "💨 XỊT KHÍ NÉN TOÀN LAB: bụi thổi bay khắp hầm — độ phủ bụi về 0%. Hưởng thụ nhanh đi, bụi đang quay lại."
+    });
+    return Results.Ok(new { dust = 0 });
+});
+
+// Test quá tải nguồn — kéo rail xuống ~3.2V trong 2 giây.
+api.MapPost("/hazard/brownout", async (DustAccumulationService dust, LabStateService s, IHubContext<LabHub> hub) =>
+{
+    dust.TriggerBrownout(3.2, 2.0);
+    await hub.Clients.All.SendAsync(LabHub.StatsUpdated, s.Stats);
+    await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
+    {
+        Type = "power",
+        Message = "⚡ BROWNOUT TEST: rail sụt còn 3.2V trong 2 giây. Đèn chuyển vàng amber, kỹ sư chuyển màu xanh."
+    });
+    return Results.Ok(new { voltage = 3.2 });
+});
+
 api.MapGet("/excuses/random", (LabStateService s) =>
     Results.Ok(new { excuse = s.RandomExcuse(), at = DateTime.UtcNow }));
 
@@ -160,12 +194,62 @@ api.MapPost("/bad-ideas", async (BadIdeaRequest req, LabStateService s, IHubCont
         return i;
     });
 
+    await hub.Clients.All.SendAsync(LabHub.BadIdeasUpdated, s.BadIdeas.OrderByDescending(b => b.SubmittedAt).ToList());
     await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
     {
         Type = "bad-idea",
         Message = $"💡 {idea.SubmittedBy} vừa xúi dại kỹ sư ý tưởng mới: \"{idea.Title}\". Độ nguy hiểm: {idea.CursedLevel}%."
     });
     return Results.Ok(idea);
+});
+
+// Upvote một ý tưởng xúi dại — đấu trường dân chủ của những quyết định tồi.
+api.MapPost("/bad-ideas/{id}/upvote", async (string id, LabStateService s, IHubContext<LabHub> hub) =>
+{
+    var idea = s.Mutate(() =>
+    {
+        var i = s.BadIdeas.FirstOrDefault(b => b.Id == id);
+        if (i is not null) i.Upvotes++;
+        return i;
+    });
+    if (idea is null) return Results.NotFound();
+
+    await hub.Clients.All.SendAsync(LabHub.BadIdeasUpdated, s.BadIdeas.OrderByDescending(b => b.SubmittedAt).ToList());
+    return Results.Ok(idea);
+});
+
+// Góc cà khịa — roast log theo từng dự án.
+api.MapGet("/projects/{id}/roasts", (string id, LabStateService s) =>
+    Results.Ok(s.Roasts.Where(r => r.ProjectId.Equals(id, StringComparison.OrdinalIgnoreCase)).OrderByDescending(r => r.At)));
+
+api.MapPost("/projects/{id}/roasts", async (string id, RoastRequest req, LabStateService s, IHubContext<LabHub> hub) =>
+{
+    if (s.GetProject(id) is null) return Results.NotFound();
+    if (string.IsNullOrWhiteSpace(req.Text) || req.Text.Length > 300)
+        return Results.BadRequest(new { error = "Cà khịa cũng cần nội dung (tối đa 300 ký tự)." });
+
+    var roast = s.Mutate(() =>
+    {
+        var r = new RoastComment
+        {
+            Id = Guid.NewGuid().ToString("N")[..8],
+            ProjectId = s.GetProject(id)!.Id,
+            Author = string.IsNullOrWhiteSpace(req.Author) ? "Kỹ Sư Ẩn Danh" : req.Author.Trim()[..40],
+            Role = string.IsNullOrWhiteSpace(req.Role) ? "Người Qua Đường" : req.Role.Trim()[..40],
+            Text = req.Text.Trim(),
+            At = DateTime.UtcNow
+        };
+        s.Roasts.Add(r);
+        return r;
+    });
+
+    await hub.Clients.All.SendAsync(LabHub.RoastAdded, roast);
+    await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
+    {
+        Type = "roast", ProjectId = id,
+        Message = $"💬 {roast.Author} ({roast.Role}) vừa cà khịa {s.GetProject(id)!.CodeName}: \"{roast.Text[..Math.Min(60, roast.Text.Length)]}…\""
+    });
+    return Results.Ok(roast);
 });
 
 // SPA fallback — everything non-API serves the haunted lab

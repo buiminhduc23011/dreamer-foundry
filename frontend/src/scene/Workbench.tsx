@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -36,6 +36,8 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
   const modelGroup = useRef<THREE.Group>(null);
   const bonkT = useRef(-1);
   const lastBonk = useRef(0);
+  // phase lệch nhau cho từng pedestal để hover không đồng bộ máy móc
+  const hoverPhase = useMemo(() => project.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 6.28, [project.id]);
 
   // dust coat opacity tracks live dust level
   const dustOpacity = Math.min(0.55, (project.dustLevel / 100) * 0.7);
@@ -62,7 +64,7 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
     if (ringMat.current) ringMat.current.opacity = Math.min(1, 0.5 * boost * flicker);
     if (glowLight.current) glowLight.current.intensity = 2.5 * boost * flicker + boomFlash.current * 30;
     boomFlash.current *= 0.85;
-    // bonk jolts the model
+    // bonk jolts the model + floating hover sine giữ cho ghost project 'còn thở'
     if (modelGroup.current) {
       const dt = t - bonkT.current;
       if (dt >= 0 && dt < 0.5) {
@@ -73,6 +75,7 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
         modelGroup.current.position.x = 0;
         modelGroup.current.rotation.z = 0;
       }
+      modelGroup.current.position.y = Math.sin(t * 0.85 + hoverPhase) * 0.045;
     }
     if (dustSparkle.current) dustSparkle.current.rotation.y = t * 0.05;
   });

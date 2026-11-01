@@ -6,8 +6,9 @@ import type {
   GraveyardEntry,
   LabEvent,
   LabStats,
+  RoastComment,
 } from '../types';
-import { mockBadIdeas, mockExcuses, mockGraveyard, mockProjects, mockStats } from './mockData';
+import { mockBadIdeas, mockExcuses, mockGraveyard, mockProjects, mockRoasts, mockStats } from './mockData';
 
 // Dev: talk to the .NET backend on :5000. Prod: same origin (backend serves the SPA).
 const API_BASE: string =
@@ -19,6 +20,8 @@ export interface LabHandlers {
   onStats: (stats: LabStats) => void;
   onEvent: (evt: LabEvent) => void;
   onMode: (mode: ConnectionMode) => void;
+  onBadIdeas: (ideas: BadIdea[]) => void;
+  onRoast: (roast: RoastComment) => void;
 }
 
 export interface LabClient {
@@ -27,10 +30,15 @@ export interface LabClient {
   bonk(id: string): Promise<void>;
   cleanDust(id: string): Promise<void>;
   boom(id: string): Promise<void>;
+  cleanAll(): Promise<void>;
+  brownout(): Promise<void>;
   randomExcuse(): Promise<string>;
   getGraveyard(): Promise<GraveyardEntry[]>;
   getBadIdeas(): Promise<BadIdea[]>;
   postBadIdea(title: string, submittedBy: string, cursedLevel: number): Promise<BadIdea | null>;
+  upvoteIdea(id: string): Promise<void>;
+  getRoasts(projectId: string): Promise<RoastComment[]>;
+  postRoast(projectId: string, author: string, role: string, text: string): Promise<RoastComment | null>;
   dispose(): void;
 }
 
@@ -64,6 +72,8 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
   hub.on('projectUpdated', (p: DustyProject[]) => handlers.onProjects(p));
   hub.on('statsUpdated', (s: LabStats) => handlers.onStats(s));
   hub.on('labEvent', (e: LabEvent) => handlers.onEvent(e));
+  hub.on('roastAdded', (r: RoastComment) => handlers.onRoast(r));
+  hub.on('badIdeasUpdated', (list: BadIdea[]) => handlers.onBadIdeas(list));
   hub.onclose(() => handlers.onMode('mock')); // hub died → drift into mock physics
 
   await hub.start();
@@ -72,13 +82,13 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
   handlers.onStats(stats);
   handlers.onMode('live');
 
-  const post = async (id: string, action: string) => {
+  const post = async (path: string) => {
     try {
-      await fetchJson(`/api/projects/${id}/${action}`, { method: 'POST' });
+      await fetchJson(path, { method: 'POST' });
     } catch {
       handlers.onEvent({
         type: 'system',
-        message: 'J.A.R.V.I.S.: API không phản hồi — hành động của ngài đã bị bụi nuốt.',
+        message: 'GHOSTLAB TELEMETRY: API không phản hồi — hành động đã bị bụi nuốt.',
         at: new Date().toISOString(),
       });
     }
@@ -86,10 +96,12 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
 
   return {
     mode: 'live',
-    incense: (id) => post(id, 'incense'),
-    bonk: (id) => post(id, 'bonk'),
-    cleanDust: (id) => post(id, 'clean-dust'),
-    boom: (id) => post(id, 'boom'),
+    incense: (id) => post(`/api/projects/${id}/incense`),
+    bonk: (id) => post(`/api/projects/${id}/bonk`),
+    cleanDust: (id) => post(`/api/projects/${id}/clean-dust`),
+    boom: (id) => post(`/api/projects/${id}/boom`),
+    cleanAll: () => post('/api/clean-all'),
+    brownout: () => post('/api/hazard/brownout'),
     randomExcuse: async () => {
       try {
         const r = await fetchJson<{ excuse: string }>('/api/excuses/random');
@@ -110,6 +122,18 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
         return null;
       }
     },
+    upvoteIdea: (id) => post(`/api/bad-ideas/${id}/upvote`),
+    getRoasts: (projectId) => fetchJson<RoastComment[]>(`/api/projects/${projectId}/roasts`).catch(() => []),
+    postRoast: async (projectId, author, role, text) => {
+      try {
+        return await fetchJson<RoastComment>(`/api/projects/${projectId}/roasts`, {
+          method: 'POST',
+          body: JSON.stringify({ author, role, text }),
+        });
+      } catch {
+        return null;
+      }
+    },
     dispose: () => void hub.stop(),
   };
 }
@@ -122,6 +146,7 @@ function createMockClient(handlers: LabHandlers): LabClient {
   const projects = structuredClone(mockProjects);
   const stats = structuredClone(mockStats);
   const ideas = structuredClone(mockBadIdeas);
+  const roasts = structuredClone(mockRoasts);
   let sagging = false;
   let sagTicks = 0;
 
@@ -144,7 +169,7 @@ function createMockClient(handlers: LabHandlers): LabClient {
         sagging = false;
         stats.voltage = 5.0;
         stats.voltageSagging = false;
-        emit('power', 'J.A.R.V.I.S.: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc.');
+        emit('power', 'GHOSTLAB TELEMETRY: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc.');
       }
     } else if (Math.random() < 0.08) {
       sagging = true;
@@ -160,7 +185,7 @@ function createMockClient(handlers: LabHandlers): LabClient {
 
   pushState();
   handlers.onMode('mock');
-  emit('system', 'J.A.R.V.I.S. Ngáo: backend .NET không thấy đâu — chuyển sang chế độ MÔ PHỎNG NỘI BỘ. Bụi vẫn tích đều đặn.');
+  emit('system', 'GHOSTLAB TELEMETRY // AI LOG: backend .NET không thấy đâu — chuyển sang chế độ MÔ PHỎNG NỘI BỘ. Bụi vẫn tích đều đặn.');
 
   return {
     mode: 'mock',
@@ -179,14 +204,14 @@ function createMockClient(handlers: LabHandlers): LabClient {
       stats.totalBonks++;
       stats.viewerPressure++;
       pushState();
-      emit('bonk', `🔨 Cộp! ${p.codeName} vừa ăn một gõ mỏ hàn giục tiến độ. Áp lực người xem: ${stats.viewerPressure}.`, id);
+      emit('bonk', `🔨 Cộp! ${p.codeName} vừa ăn một gõ đầu giục tiến độ. Áp lực người xem: ${stats.viewerPressure}.`, id);
     },
     cleanDust: async (id) => {
       const p = find(id);
       if (!p) return;
       p.dustLevel = Math.max(0, p.dustLevel - 25);
       pushState();
-      emit('clean-dust', `💨 Khí nén xịt vào ${p.codeName}. Độ phủ bụi còn ${p.dustLevel.toFixed(0)}%. (Bụi đang lấp lại ngay khi ngài đọc dòng này.)`, id);
+      emit('clean-dust', `💨 Khí nén xịt vào ${p.codeName}. Độ phủ bụi còn ${p.dustLevel.toFixed(0)}%. (Bụi đang lấp lại ngay khi đọc dòng này.)`, id);
     },
     boom: async (id) => {
       const p = find(id);
@@ -197,6 +222,19 @@ function createMockClient(handlers: LabHandlers): LabClient {
       pushState();
       emit('boom', `💥 BÙM! Một con MOSFET trên ${p.codeName} vừa thả khói ma thuật. IC hy sinh tổng cộng: ${stats.friedIcCount}.`, id);
     },
+    cleanAll: async () => {
+      for (const p of projects) p.dustLevel = 0;
+      pushState();
+      emit('clean-all', '💨 XỊT KHÍ NÉN TOÀN LAB: bụi thổi bay khắp hầm — độ phủ bụi về 0%. Hưởng thụ nhanh đi, bụi đang quay lại.');
+    },
+    brownout: async () => {
+      sagging = true;
+      sagTicks = 1;
+      stats.voltage = 3.2;
+      stats.voltageSagging = true;
+      pushState();
+      emit('power', '⚡ BROWNOUT TEST: rail sụt còn 3.2V trong 2 giây. Đèn chuyển vàng amber, kỹ sư chuyển màu xanh.');
+    },
     randomExcuse: async () => mockExcuses[Math.floor(Math.random() * mockExcuses.length)],
     getGraveyard: async () => structuredClone(mockGraveyard),
     getBadIdeas: async () => [...ideas],
@@ -206,11 +244,35 @@ function createMockClient(handlers: LabHandlers): LabClient {
         title,
         submittedBy: submittedBy || 'Anonymous Enabler',
         cursedLevel,
+        upvotes: 0,
         submittedAt: new Date().toISOString(),
       };
       ideas.unshift(idea);
+      handlers.onBadIdeas([...ideas]);
       emit('bad-idea', `💡 ${idea.submittedBy} vừa xúi dại kỹ sư ý tưởng mới: "${idea.title}". Độ nguy hiểm: ${idea.cursedLevel}%.`);
       return idea;
+    },
+    upvoteIdea: async (id) => {
+      const idea = ideas.find((i) => i.id === id);
+      if (!idea) return;
+      idea.upvotes++;
+      handlers.onBadIdeas([...ideas]);
+    },
+    getRoasts: async (projectId) => roasts.filter((r) => r.projectId === projectId),
+    postRoast: async (projectId, author, role, text) => {
+      const roast: RoastComment = {
+        id: Math.random().toString(36).slice(2, 10),
+        projectId,
+        author: author || 'Kỹ Sư Ẩn Danh',
+        role: role || 'Người Qua Đường',
+        text,
+        at: new Date().toISOString(),
+      };
+      roasts.unshift(roast);
+      handlers.onRoast(roast);
+      const p = find(projectId);
+      emit('roast', `💬 ${roast.author} (${roast.role}) vừa cà khịa ${p?.codeName ?? projectId}.`, projectId);
+      return roast;
     },
     dispose: () => window.clearInterval(timer),
   };
