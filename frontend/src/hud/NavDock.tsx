@@ -1,7 +1,7 @@
 import type { IconType } from 'react-icons';
 import { AiOutlineHome, AiOutlineRobot } from 'react-icons/ai';
 import { GiDeliveryDrone, GiGhost } from 'react-icons/gi';
-import { MdDeveloperBoard, MdOutlineHub, MdOutlineVideocam } from 'react-icons/md';
+import { MdDeveloperBoard, MdOutlineHub, MdOutlineVideocam, MdRadar } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
 
 const ICONS: Record<string, IconType> = {
@@ -10,6 +10,7 @@ const ICONS: Record<string, IconType> = {
   'jarvis-core': MdOutlineHub,
   'sky-ghost': GiDeliveryDrone,
   'iron-biped': AiOutlineRobot,
+  'amr-slam': MdRadar,
 };
 
 /** Bottom-center quick nav — jump the camera to a workstation (dock tự sinh theo roster). */

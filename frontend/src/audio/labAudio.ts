@@ -52,6 +52,9 @@ class LabAudioEngine {
   private listeners = new Set<Listener>();
   private tmpForward = new THREE.Vector3();
   private tmpUp = new THREE.Vector3();
+  private prevAmrPos = new THREE.Vector3();
+  private amrSpeed = 0;
+
   constructor() {
     this.loadPrefs();
     if (typeof window !== 'undefined') {
@@ -572,6 +575,52 @@ class LabAudioEngine {
         },
       });
     }
+
+    // 6. PRJ-AMR-SLAM (4 cụm bánh Swerve BLDC chạy vòng vòng quanh phòng lab)
+    {
+      const panner = this.makePanner(ctx, 0.0, 0.35, 2.9, 2.8);
+      const gain = ctx.createGain();
+      gain.gain.value = 0.22;
+
+      const servo1 = ctx.createOscillator();
+      const servo2 = ctx.createOscillator();
+      servo1.type = 'sawtooth';
+      servo2.type = 'triangle';
+      servo1.frequency.value = 145;
+      servo2.frequency.value = 294;
+
+      const servoFilter = ctx.createBiquadFilter();
+      servoFilter.type = 'bandpass';
+      servoFilter.frequency.value = 380;
+      servoFilter.Q.value = 1.6;
+
+      const sg1 = ctx.createGain();
+      const sg2 = ctx.createGain();
+      sg1.gain.value = 0.085;
+      sg2.gain.value = 0.055;
+
+      servo1.connect(sg1);
+      servo2.connect(sg2);
+      sg1.connect(servoFilter);
+      sg2.connect(servoFilter);
+      servoFilter.connect(gain);
+      gain.connect(panner);
+      panner.connect(this.sfxBus);
+      servo1.start();
+      servo2.start();
+
+      this.machines.set('amr-slam', {
+        panner,
+        gain,
+        update: (t) => {
+          const spd = Math.min(2.2, this.amrSpeed);
+          const pitch = 128 + spd * 42 + Math.sin(t * 3.4) * 5;
+          servo1.frequency.value = pitch;
+          servo2.frequency.value = pitch * 2.02;
+          servoFilter.frequency.value = 310 + spd * 140;
+        },
+      });
+    }
   }
 
   private playSpatialTone(
@@ -603,6 +652,7 @@ class LabAudioEngine {
   updateSpatialFrame(
     camera: THREE.Camera,
     projectPositions: Record<string, [number, number, number]>,
+    amrPos: THREE.Vector3,
     sagging: boolean,
     t: number,
     dt: number
@@ -636,9 +686,23 @@ class LabAudioEngine {
       );
     }
 
+    // Vận tốc thực của AMR Swerve để điều biến tiếng servo
+    if (dt > 0.0001) {
+      const dist = amrPos.distanceTo(this.prevAmrPos);
+      const instSpeed = dist / dt;
+      if (instSpeed < 20) {
+        this.amrSpeed = this.amrSpeed * 0.88 + instSpeed * 0.12;
+      }
+      this.prevAmrPos.copy(amrPos);
+    }
+
     // Cập nhật tọa độ từng máy trong không gian 3D
     this.machines.forEach((rig, id) => {
-      if (projectPositions[id]) {
+      if (id === 'amr-slam') {
+        rig.panner.positionX.value = amrPos.x;
+        rig.panner.positionY.value = amrPos.y + 0.35;
+        rig.panner.positionZ.value = amrPos.z;
+      } else if (projectPositions[id]) {
         const [px, py, pz] = projectPositions[id];
         rig.panner.positionX.value = px;
         rig.panner.positionY.value = py + (id === 'jarvis-core' ? 1.55 : id === 'sky-ghost' ? 1.3 : 0.95);
@@ -681,6 +745,35 @@ class LabAudioEngine {
     bp.connect(g);
     g.connect(rig.panner);
     src.start(now, Math.random() * 1.2, 0.11);
+  }
+
+  /** Tiếng báo động hoảng loạn khi AMR Swerve mất định vị xoay vòng */
+  triggerAmrCrash() {
+    if (!this.ctx || this.ctx.state !== 'running' || this.muted || this.panicMuted) return;
+    const rig = this.machines.get('amr-slam');
+    if (!rig) return;
+
+    const now = this.ctx.currentTime;
+    const notes = [980, 740, 1180, 620, 480];
+    notes.forEach((f, i) => {
+      const o = this.ctx!.createOscillator();
+      const g = this.ctx!.createGain();
+      o.type = 'sawtooth';
+      const t0 = now + i * 0.085;
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.exponentialRampToValueAtTime(f * 0.78, t0 + 0.075);
+      const lp = this.ctx!.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2200;
+      g.gain.setValueAtTime(0.001, t0);
+      g.gain.linearRampToValueAtTime(0.16, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.08);
+      o.connect(lp);
+      lp.connect(g);
+      g.connect(rig.panner);
+      o.start(t0);
+      o.stop(t0 + 0.09);
+    });
   }
 
 

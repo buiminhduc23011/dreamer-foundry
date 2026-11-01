@@ -1,7 +1,11 @@
-import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useMemo, useRef, useState } from 'react';
+import { AiOutlineWarning } from 'react-icons/ai';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { Html, Sparkles, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import type { DustyProject } from '../types';
+import { useLabStore } from '../store/labStore';
+import { BurstEmitter, RisingEmitter } from './particles';
 import { labAudio } from '../audio/labAudio';
 import { LabChair } from './LabFurniture';
 import {
@@ -37,6 +41,7 @@ const MODEL_URLS = {
   drone: '/models/drone.glb?v=3',
   droneRotor: '/models/drone_rotor.glb?v=3',
   biped: '/models/biped.glb?v=3',
+  amr: '/models/amr.glb?v=5',
 } as const;
 
 /* ================================================================== */
@@ -1196,7 +1201,373 @@ export function BipedModel({ sagging }: GhostModelProps) {
   );
 }
 
+/* ================================================================== */
+/* 6. PRJ-AMR-SLAM — 4-Swerve Omnidirectional SLAM Robot (No Dock)    */
+/* ================================================================== */
+
+export const amrWorldPos = new THREE.Vector3(0, 0, 3.1);
+
+const AMR_RADIUS = 0.68;
+const AMR_WHEEL_RADIUS = 0.1493;
+const AMR_CRUISE_SPEED = 1.35;
+const CRASH_DUR = 2.8;
+
+const SWERVE_MODULES = [
+  { steer: 'Steer_FL', wheel: 'Wheel_FL', rx: 0.4898, rz: 0.4809 },
+  { steer: 'Steer_FR', wheel: 'Wheel_FR', rx: -0.4898, rz: 0.4809 },
+  { steer: 'Steer_BL', wheel: 'Wheel_BL', rx: 0.4898, rz: -0.4809 },
+  { steer: 'Steer_BR', wheel: 'Wheel_BR', rx: -0.4898, rz: -0.4809 },
+] as const;
+
+// Quỹ đạo tuần tra khép kín lượn mượt quanh bàn kính J.A.R.V.I.S. trung tâm & các bàn thao tác R&D
+const PATROL_CURVE = new THREE.CatmullRomCurve3(
+  [
+    new THREE.Vector3(0.0, 0, 3.1),
+    new THREE.Vector3(3.3, 0, 2.1),
+    new THREE.Vector3(3.35, 0, -1.05),
+    new THREE.Vector3(1.85, 0, -3.15),
+    new THREE.Vector3(0.0, 0, -3.35),
+    new THREE.Vector3(-1.85, 0, -3.15),
+    new THREE.Vector3(-3.3, 0, -1.0),
+    new THREE.Vector3(-3.3, 0, 2.1),
+  ],
+  true,
+  'catmullrom',
+  0.5
+);
+const PATROL_LENGTH = PATROL_CURVE.getLength();
+
+const STATIC_FLOOR_OBSTACLES: { x: number; z: number; r: number }[] = [
+  { x: 0.0, z: -0.8, r: 1.66 },   // Bàn kính tròn J.A.R.V.I.S. trung tâm
+  { x: 1.18, z: 0.68, r: 0.44 },  // Ghế kỹ sư cạnh bàn J.A.R.V.I.S.
+  { x: -5.0, z: -1.4, r: 0.65 },  // Mũi càng thép xe nâng FORK-EYE
+  { x: -8.4, z: 1.2, r: 1.45 },   // Bàn máy tính DeveloperStation bên trái
+  { x: 8.3, z: 1.2, r: 1.35 },    // Bàn máy in 3D bên phải
+];
+
+function wrapPi(a: number): number {
+  let x = (a + Math.PI) % (Math.PI * 2);
+  if (x < 0) x += Math.PI * 2;
+  return x - Math.PI;
+}
+
+function resolveFloorCollisions(pos: THREE.Vector3, projects: DustyProject[]) {
+  for (let pass = 0; pass < 2; pass++) {
+    for (const p of projects) {
+      if (p.id === 'amr-slam') continue;
+      const stationR = p.id === 'jarvis-core' ? 1.66 : 1.55;
+      const minD = stationR + AMR_RADIUS;
+      const dx = pos.x - p.position[0];
+      const dz = pos.z - p.position[2];
+      const d = Math.hypot(dx, dz);
+      if (d < minD) {
+        const ux = d > 1e-4 ? dx / d : 1;
+        const uz = d > 1e-4 ? dz / d : 0;
+        pos.x = p.position[0] + ux * minD;
+        pos.z = p.position[2] + uz * minD;
+      }
+    }
+    for (const ob of STATIC_FLOOR_OBSTACLES) {
+      const minD = ob.r + AMR_RADIUS;
+      const dx = pos.x - ob.x;
+      const dz = pos.z - ob.z;
+      const d = Math.hypot(dx, dz);
+      if (d < minD) {
+        const ux = d > 1e-4 ? dx / d : 0;
+        const uz = d > 1e-4 ? dz / d : 1;
+        pos.x = ob.x + ux * minD;
+        pos.z = ob.z + uz * minD;
+      }
+    }
+    pos.x = Math.max(-6.8, Math.min(6.8, pos.x));
+    pos.z = Math.max(-7.2, Math.min(6.8, pos.z));
+  }
+}
+
+const AMR_CRASH_MSGS = [
+  'AMR_SLAM: Mất định vị — xoay vòng trầm cảm quanh bàn J.A.R.V.I.S.',
+  'AMR_SLAM: Occupancy grid lệch 40cm, phanh gấp xoay Swerve tìm bản đồ',
+  'AMR_SLAM: LiDAR trả về 3 bản đồ khác nhau, đang bỏ phiếu tin bản nào',
+  'AMR_SLAM: micro-ROS mất gói UART — khóa 4 bánh Swerve xoay compa tại chỗ',
+  'AMR_SLAM: Tìm trạm sạc cũ không thấy — tiếp tục lượn vòng vô định',
+];
+
+const AMR_EMPTY_FX = { incense: 0, dust: 0, bonk: 0, boom: 0 } as const;
+const amrDustColor = (d: number) => (d > 80 ? '#ff4d5e' : d > 55 ? '#ffb02e' : '#3dffa0');
+const TMP_PT = new THREE.Vector3();
+const TMP_TAN = new THREE.Vector3();
+const TMP_TAN2 = new THREE.Vector3();
+
+export function AmrRover({ project, sagging }: { project: DustyProject; sagging: boolean }) {
+  const { scene } = useGLTF(MODEL_URLS.amr);
+  const { cloned, modules } = useMemo(() => {
+    const c = scene.clone(true);
+    const mods = SWERVE_MODULES.map((m) => ({
+      ...m,
+      steerObj: c.getObjectByName(m.steer) ?? null,
+      wheelObj: c.getObjectByName(m.wheel) ?? null,
+    }));
+    return { cloned: c, modules: mods };
+  }, [scene]);
+
+  const select = useLabStore((s) => s.select);
+  const selected = useLabStore((s) => s.selectedId === project.id);
+  const fx = useLabStore((s) => s.fx[project.id]) ?? AMR_EMPTY_FX;
+
+  const body = useRef<THREE.Group>(null);
+  const scan = useRef<THREE.Mesh>(null);
+  const beacon = useRef<THREE.Mesh>(null);
+  const spark = useRef<THREE.Mesh>(null);
+  const lamp = useRef<THREE.PointLight>(null);
+
+  const distAlong = useRef(0.0);
+  const initialized = useRef(false);
+  const prevPos = useRef(new THREE.Vector3(0, 0, 3.1));
+  const prevYaw = useRef(Math.PI * 0.5);
+  const steerAngles = useRef<number[]>([0, 0, 0, 0]);
+  const wheelRolls = useRef<number[]>([0, 0, 0, 0]);
+
+  const crashStart = useRef(-1);
+  const nextCrash = useRef(11 + Math.random() * 10);
+  const [crashing, setCrashing] = useState(false);
+  const [crashNonce, setCrashNonce] = useState(0);
+  const [tagTooClose, setTagTooClose] = useState(false);
+
+  const lastIncense = useRef(0);
+  const incenseUntil = useRef(0);
+  const [incenseActive, setIncenseActive] = useState(false);
+  const lastBonk = useRef(0);
+  const bonkT = useRef(-1);
+  const lastBoom = useRef(0);
+  const boomFlash = useRef(0);
+  const holoOp = useFlickerOpacity(sagging, 0.5);
+
+  const dustOpacity = Math.min(0.55, (project.dustLevel / 100) * 0.7);
+
+  useFrame((state, dt) => {
+    const t = state.clock.elapsedTime;
+    const b = body.current;
+    if (!b) return;
+    const safeDt = Math.min(Math.max(dt, 0.001), 0.05);
+
+    if (!initialized.current) {
+      initialized.current = true;
+      PATROL_CURVE.getPointAt(0, TMP_PT);
+      PATROL_CURVE.getTangentAt(0, TMP_TAN);
+      b.position.set(TMP_PT.x, 0.004, TMP_PT.z);
+      const initYaw = Math.atan2(TMP_TAN.x, TMP_TAN.z);
+      b.rotation.y = initYaw;
+      prevPos.current.copy(b.position);
+      prevYaw.current = initYaw;
+    }
+
+    if (fx.incense !== lastIncense.current) {
+      lastIncense.current = fx.incense;
+      incenseUntil.current = t + 6;
+      setIncenseActive(true);
+    }
+    if (incenseActive && t > incenseUntil.current) setIncenseActive(false);
+    if (fx.boom !== lastBoom.current) {
+      lastBoom.current = fx.boom;
+      boomFlash.current = 1;
+    }
+    if (fx.bonk !== lastBonk.current) {
+      lastBonk.current = fx.bonk;
+      bonkT.current = t;
+    }
+
+    const inCrash = crashStart.current >= 0;
+
+    if (inCrash) {
+      if (t - crashStart.current >= CRASH_DUR) {
+        crashStart.current = -1;
+        setCrashing(false);
+        nextCrash.current = t + 14 + Math.random() * 14;
+        if (spark.current) spark.current.visible = false;
+      } else {
+        b.rotation.y = wrapPi(b.rotation.y + safeDt * 3.4);
+        if (spark.current) spark.current.visible = Math.random() > 0.45;
+      }
+    } else {
+      if (t > nextCrash.current) {
+        crashStart.current = t;
+        setCrashing(true);
+        setCrashNonce((n) => n + 1);
+        labAudio.triggerAmrCrash();
+        useLabStore
+          .getState()
+          .pushFeed('amr-crash', project.id, AMR_CRASH_MSGS[Math.floor(Math.random() * AMR_CRASH_MSGS.length)]);
+      }
+
+      const uCur = (distAlong.current % PATROL_LENGTH) / PATROL_LENGTH;
+      const uAhead = ((distAlong.current + 0.9) % PATROL_LENGTH) / PATROL_LENGTH;
+      PATROL_CURVE.getTangentAt(uCur, TMP_TAN);
+      PATROL_CURVE.getTangentAt(uAhead, TMP_TAN2);
+      const turnCos = Math.max(-1, Math.min(1, TMP_TAN.x * TMP_TAN2.x + TMP_TAN.z * TMP_TAN2.z));
+      const cornerSlowdown = 0.62 + 0.38 * Math.max(0, turnCos);
+      const speed = AMR_CRUISE_SPEED * cornerSlowdown;
+
+      distAlong.current = (distAlong.current + speed * safeDt) % PATROL_LENGTH;
+      const uNext = distAlong.current / PATROL_LENGTH;
+      PATROL_CURVE.getPointAt(uNext, TMP_PT);
+      PATROL_CURVE.getTangentAt(uNext, TMP_TAN);
+
+      b.position.x = TMP_PT.x;
+      b.position.z = TMP_PT.z;
+
+      resolveFloorCollisions(b.position, useLabStore.getState().projects);
+
+      const desiredHeading = Math.atan2(TMP_TAN.x, TMP_TAN.z);
+      const yawErr = wrapPi(desiredHeading - b.rotation.y);
+      b.rotation.y = wrapPi(b.rotation.y + yawErr * (1 - Math.exp(-safeDt * 6.5)));
+    }
+
+    // Động học ngược 4 cụm bánh Swerve chuẩn vật lý (v_i = v_body + ω × r_i)
+    const dxW = b.position.x - prevPos.current.x;
+    const dzW = b.position.z - prevPos.current.z;
+    const dYaw = wrapPi(b.rotation.y - prevYaw.current);
+
+    const vxW = dxW / safeDt;
+    const vzW = dzW / safeDt;
+    const omegaY = dYaw / safeDt;
+
+    const cosP = Math.cos(b.rotation.y);
+    const sinP = Math.sin(b.rotation.y);
+    const vxLocal = vxW * cosP - vzW * sinP;
+    const vzLocal = vxW * sinP + vzW * cosP;
+
+    for (let i = 0; i < modules.length; i++) {
+      const m = modules[i];
+      const ux = vxLocal + omegaY * m.rz;
+      const uz = vzLocal - omegaY * m.rx;
+      const wheelSpeed = Math.hypot(ux, uz);
+
+      if (wheelSpeed > 0.012) {
+        let desiredSteer = Math.atan2(ux, uz);
+        let driveSign = 1;
+        if (desiredSteer > Math.PI * 0.5) {
+          desiredSteer -= Math.PI;
+          driveSign = -1;
+        } else if (desiredSteer < -Math.PI * 0.5) {
+          desiredSteer += Math.PI;
+          driveSign = -1;
+        }
+        const delta = desiredSteer - steerAngles.current[i];
+        steerAngles.current[i] += delta * (1 - Math.exp(-safeDt * 18));
+        wheelRolls.current[i] +=
+          (driveSign * wheelSpeed * Math.cos(delta) * safeDt) / AMR_WHEEL_RADIUS;
+      }
+
+      if (m.steerObj) m.steerObj.rotation.set(0, steerAngles.current[i], 0);
+      if (m.wheelObj) m.wheelObj.rotation.set(wheelRolls.current[i], 0, 0);
+    }
+
+    prevPos.current.copy(b.position);
+    prevYaw.current = b.rotation.y;
+
+    if (scan.current) {
+      scan.current.rotation.z = -t * 7.5;
+      (scan.current.material as THREE.MeshBasicMaterial).opacity =
+        holoOp.current * (inCrash ? 0.9 : 0.45);
+    }
+    if (beacon.current) {
+      const m = beacon.current.material as THREE.MeshBasicMaterial;
+      if (inCrash) {
+        m.color.set('#ff4d5e');
+        m.opacity = Math.sin(t * 18) > 0 ? 1 : 0.15;
+      } else {
+        m.color.set(AMBER);
+        m.opacity = Math.sin(t * 6) > 0.4 ? 0.9 : 0.25;
+      }
+    }
+
+    const bt = t - bonkT.current;
+    const jolt = bt >= 0 && bt < 0.5 ? (1 - bt / 0.5) * 0.07 : 0;
+    b.position.y = 0.004 + Math.abs(Math.sin(t * 90)) * jolt;
+    if (lamp.current) lamp.current.intensity = 1.4 + boomFlash.current * 25;
+    boomFlash.current *= 0.85;
+
+    amrWorldPos.copy(b.position);
+
+    const camDist = state.camera.position.distanceTo(b.position);
+    if (camDist < 2.8 !== tagTooClose) setTagTooClose(camDist < 2.8);
+  });
+
+  const onClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    select(project.id);
+  };
+
+  return (
+    <group ref={body} onClick={onClick}>
+      <primitive object={cloned} position={[0, 0, 0]} scale={1} />
+
+      {/* Vòng quét LiDAR 2D sát sàn */}
+      <mesh ref={scan} position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.98, 1.05, 48, 1, 0, 0.85]} />
+        <meshBasicMaterial
+          color={HOLO}
+          transparent
+          opacity={0.38}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+
+      {/* Đèn hiệu trạng thái SLAM */}
+      <mesh ref={beacon} position={[0, 0.71, -0.26]}>
+        <sphereGeometry args={[0.042, 12, 12]} />
+        <meshBasicMaterial color={AMBER} transparent opacity={0.85} />
+      </mesh>
+      <mesh ref={spark} position={[0, 0.38, 0.55]} visible={false}>
+        <sphereGeometry args={[0.055, 8, 8]} />
+        <meshBasicMaterial color="#fff7ae" />
+      </mesh>
+      <pointLight ref={lamp} position={[0, 0.95, 0]} color={HOLO} intensity={1.4} distance={4.5} decay={2} />
+
+      <Sparkles
+        count={70}
+        scale={[1.35, 0.8, 1.35]}
+        position={[0, 0.45, 0]}
+        size={1.8}
+        speed={0.1}
+        opacity={dustOpacity}
+        color="#9db2c2"
+        noise={2}
+      />
+      <RisingEmitter active={incenseActive} color="#ffcf6b" count={100} height={1.8} radius={0.5} speed={0.7} size={0.05} opacity={0.8} wobble={0.6} />
+      <BurstEmitter nonce={fx.dust + crashNonce} count={200} speed={3} color="#9fc4d4" />
+      <BurstEmitter nonce={fx.boom} count={120} speed={2.4} color={AMBER} />
+
+      {!selected && !tagTooClose && (
+        <Html position={[0, 1.25, 0]} center distanceFactor={8} className="holo-tag">
+          <div
+            onClick={() => select(project.id)}
+            className="cursor-pointer select-none border border-holo/40 bg-void/80 px-3 py-1.5 font-mono text-[10px] backdrop-blur-sm transition-all hover:border-holo"
+          >
+            <div className="font-display text-[11px] font-bold tracking-widest text-holo">{project.codeName}</div>
+            <div className="mt-0.5 flex gap-3 text-[9px]">
+              <span className="text-holo/80">▓ {project.completionPercent}% XONG</span>
+              {crashing ? (
+                <span className="animate-pulse font-bold text-danger">
+                  <AiOutlineWarning className="inline-block align-[-2px]" /> MẤT ĐỊNH VỊ
+                </span>
+              ) : (
+                <span style={{ color: amrDustColor(project.dustLevel) }}>
+                  ĐỘ PHỦ BỤI: {Math.round(project.dustLevel)}%
+                </span>
+              )}
+            </div>
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
 useGLTF.preload(MODEL_URLS.forklift);
 useGLTF.preload(MODEL_URLS.drone);
 useGLTF.preload(MODEL_URLS.droneRotor);
 useGLTF.preload(MODEL_URLS.biped);
+useGLTF.preload(MODEL_URLS.amr);

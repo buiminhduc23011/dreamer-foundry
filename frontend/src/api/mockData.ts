@@ -159,6 +159,35 @@ export const mockProjects: DustyProject[] = [
       ],
     },
   },
+  {
+    id: 'amr-slam',
+    codeName: 'PRJ-AMR-SLAM',
+    name: 'AMR 4 Bánh Swerve Định Vị SLAM',
+    tagline: 'Đỉnh cao định vị LiDAR SLAM đa hướng 4 cụm bánh Swerve không cần băng từ. Thực tế: Đã bị dẹp luôn trạm sạc cố định nên chạy vòng vòng quanh bàn J.A.R.V.I.S. trong trạng thái trầm cảm tìm đường về nhà.',
+    ghostStatus: 'Chạy vòng vòng mất định vị — 45% Hoàn thành',
+    damageReport: 'Rơi vỡ 1 cảm biến LiDAR 2D do cẩu thả khi bê ra bãi test, mất tích luôn trạm sạc DOCK-01.',
+    timeParadox: 'Dự kiến: 3 tháng | Thực tế đã ngâm: 6 tháng',
+    completionPercent: 45,
+    dustLevel: 70,
+    smoking: false,
+    position: [0.0, 0.0, 2.9],
+    incenseCount: 0,
+    bonkCount: 0,
+    roadmap: {
+      hardware: [
+        { status: 'Xong', description: 'Khung cơ khí 4 module Swerve Drive độc lập + SBC công nghiệp + Cảm biến LiDAR 2D.' },
+        { status: 'DangNgap', description: 'Mạch phân phối nguồn 24V cho hệ thống điều khiển động cơ (Steer BLDC + Drive BLDC).' },
+      ],
+      firmware: [
+        { status: 'Xong', description: 'Driver điều khiển Swerve Drive: độc lập góc lái + tốc độ lăn cho từng module bánh.' },
+        { status: 'DangNgap', description: 'Giao tiếp ROS2 micro-ROS trên vi điều khiển trung tâm (Thường xuyên bị mất gói tin qua UART).' },
+      ],
+      software: [
+        { status: 'Xong', description: 'Bản đồ Occupancy Grid Mapping bằng ROS2 Nav2 stack.' },
+        { status: 'TrongMo', description: 'Tính năng tự động né vật cản động bằng thuật toán DWA (Dynamic Window Approach) không tông vào nhân viên xưởng.' },
+      ],
+    },
+  },
 ];
 
 export const mockStats: LabStats = {
@@ -221,6 +250,8 @@ export const mockRoasts: RoastComment[] = [
   { id: 'r6', projectId: 'sky-ghost', author: 'Thợ Tune PID Thất Nghiệp', role: 'Đồng Nghiệp Cũ', text: '412 lần tune PID mà drone vẫn lắc theo nhạc sàn — vấn đề không nằm ở PID, nằm ở playlist.', at: new Date().toISOString() },
   { id: 'r9', projectId: 'iron-biped', author: 'Nhà Đầu Tư Thiên Thần', role: 'Đã Rút Vốn', text: "Pitch deck nói 'Optimus Prime tại gia'. Deliverable sau 1 năm: 1 cái đùi và 19 file CAD tên giống hệt nhau.", at: new Date().toISOString() },
   { id: 'r10', projectId: 'iron-biped', author: 'Robot Trong Mô Phỏng', role: 'Nhân Chứng Sống', text: 'Tôi xác nhận trong mô phỏng nó đi được 3 bước rồi trồng cây chuối. Thuật toán cân bằng hoạt động... ngược.', at: new Date().toISOString() },
+  { id: 'r11', projectId: 'amr-slam', author: 'Bản Đồ Occupancy Grid', role: 'Nạn Nhân Bị Quên', text: 'Nó vẽ tôi ra rồi quên luôn tôi là ai. Giờ trạm sạc cũng bị dẹp nên nó lượn quanh bàn J.A.R.V.I.S. cả ngày.', at: new Date().toISOString() },
+  { id: 'r12', projectId: 'amr-slam', author: 'Chân Tủ Sắt', role: 'Nạn Nhân Tái Phạm', text: 'AMR quét LiDAR 360° rất kỹ càng rồi vẫn xoay bánh Swerve sát sàn sạt qua mũi giày kỹ sư.', at: new Date().toISOString() },
   { id: 'r13', projectId: 'remote-io', author: 'Kỹ Sư Tủ Điện PLC', role: 'Nạn Nhân TIA Portal', text: "Quảng cáo 'chuẩn Siemens ET 200SP nội địa', cắm cáp xanh PROFINET vào thì đèn đỏ BF chớp như đèn còi cảnh sát.", at: new Date().toISOString() },
   { id: 'r14', projectId: 'remote-io', author: 'Thợ Đấu Tủ Ca 3', role: 'Người Thử Độ Bền Opto', text: 'Cầu đấu Push-in kẹt cứng đến mức rút sợi dây 0.75mm² ra thì bay luôn cả vỏ nhựa lẫn thanh ray DIN.', at: new Date().toISOString() },
   { id: 'r15', projectId: 'jarvis-core', author: 'Tony Stark Hàng Shopee', role: 'Chủ Nhân Bị Phản Bội', text: "Tôi hô 'J.A.R.V.I.S., bật đèn bàn hàn!' — nó im lặng 30 giây suy ngẫm triết học rồi tắt luôn aptomat tổng.", at: new Date().toISOString() },

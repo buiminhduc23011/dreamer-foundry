@@ -36,12 +36,15 @@ public class GeminiChatService
         try
         {
             var res = await _http.GetAsync($"https://generativelanguage.googleapis.com/v1beta/models/{_secrets.Model}?key={_secrets.GeminiApiKey}");
-            if (!res.IsSuccessStatusCode)
+            if (!res.IsSuccessStatusCode && res.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                var err = await res.Content.ReadAsStringAsync();
-                Console.WriteLine($"[GeminiChat] Ping model status failed ({res.StatusCode}) for model '{_secrets.Model}': {err}");
+                var fallbackRes = await _http.GetAsync($"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash?key={_secrets.GeminiApiKey}");
+                _statusCache = fallbackRes.IsSuccessStatusCode ? "online" : "invalid";
             }
-            _statusCache = res.IsSuccessStatusCode ? "online" : "invalid";
+            else
+            {
+                _statusCache = res.IsSuccessStatusCode ? "online" : "invalid";
+            }
         }
         catch (Exception ex)
         {
@@ -283,6 +286,20 @@ public class GeminiChatService
             if (!res.IsSuccessStatusCode)
             {
                 Console.WriteLine($"[GeminiChat] generateContent failed ({res.StatusCode}) on model '{_secrets.Model}': {raw}");
+                if (res.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    var fallbackUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_secrets.GeminiApiKey}";
+                    var fallbackRes = await _http.PostAsync(fallbackUrl, new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"));
+                    if (fallbackRes.IsSuccessStatusCode)
+                    {
+                        raw = await fallbackRes.Content.ReadAsStringAsync();
+                        res = fallbackRes;
+                    }
+                }
+            }
+
+            if (!res.IsSuccessStatusCode)
+            {
                 _statusChecked = DateTime.MinValue; // ép status check lại lần sau
                 return (GenerateFallbackReply(message), true);
             }

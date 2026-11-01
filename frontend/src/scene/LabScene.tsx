@@ -7,6 +7,8 @@ import { useLabStore } from '../store/labStore';
 import { AmbientDust } from './particles';
 import { Workbench } from './Workbench';
 import {
+  AmrRover,
+  amrWorldPos,
   BipedModel,
   DroneModel,
   ForkliftModel,
@@ -34,7 +36,7 @@ function SpatialAudioSync({ projects, sagging }: { projects: DustyProject[]; sag
   }, [projects]);
 
   useFrame(({ camera, clock }, dt) => {
-    labAudio.updateSpatialFrame(camera, posMap, sagging, clock.elapsedTime, dt);
+    labAudio.updateSpatialFrame(camera, posMap, amrWorldPos, sagging, clock.elapsedTime, dt);
   });
   return null;
 }
@@ -206,10 +208,10 @@ function Bunker() {
       <FireExtinguisher position={[0, 1.1, -9.4]} />
       <FireExtinguisher position={[-9.3, 1.1, 2.8]} rotation={[0, Math.PI / 2, 0]} />
 
-      {/* 7. Gờ cao su bảo vệ cáp điện chạy ngầm dưới sàn từ tủ Server tới trung tâm J.A.R.V.I.S. & bàn test */}
-      <FloorCableRamp from={[5.8, 0, -7.7]} to={[1.2, 0, -1.5]} width={0.16} />
-      <FloorCableRamp from={[-7.5, 0, 1.1]} to={[-1.3, 0, -0.7]} width={0.16} />
-      <FloorCableRamp from={[-3.0, 0, -4.6]} to={[-0.8, 0, -1.6]} width={0.14} />
+      {/* 7. Gờ cao su bảo vệ cáp điện chạy dọc chu vi ngoài các khu vực trạm máy (tránh cản đường tuần tra của AMR Swerve) */}
+      <FloorCableRamp from={[5.8, 0, -7.7]} to={[3.7, 0, -6.1]} width={0.15} />
+      <FloorCableRamp from={[-7.6, 0, 0.5]} to={[-6.4, 0, -0.7]} width={0.15} />
+      <FloorCableRamp from={[-5.6, 0, -7.7]} to={[-3.7, 0, -6.1]} width={0.14} />
 
       {/* Bo mạch & ốc vít vụn vương trên sàn xưởng */}
       {debris.map((p, i) => (
@@ -252,14 +254,16 @@ function SceneContent() {
       <Bunker />
       <AmbientDust />
 
-      {projects.map((p) => (
-        <FlickerSpot
-          key={`spot-${p.id}`}
-          position={[p.position[0], 5.4, p.position[2]]}
-          sagging={sagging}
-          brownout={brownout}
-        />
-      ))}
+      {projects
+        .filter((p) => p.id !== 'amr-slam')
+        .map((p) => (
+          <FlickerSpot
+            key={`spot-${p.id}`}
+            position={[p.position[0], 5.4, p.position[2]]}
+            sagging={sagging}
+            brownout={brownout}
+          />
+        ))}
 
       <Suspense fallback={null}>
         {byId('fork-eye') && (
@@ -287,6 +291,7 @@ function SceneContent() {
             <BipedModel sagging={sagging} />
           </Workbench>
         )}
+        {byId('amr-slam') && <AmrRover project={byId('amr-slam')!} sagging={sagging} />}
       </Suspense>
 
       <CameraRig />

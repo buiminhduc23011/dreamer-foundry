@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { AiOutlineCheck, AiOutlineMinus, AiOutlineReload, AiOutlineRobot, AiOutlineSend, AiOutlineSetting } from 'react-icons/ai';
+import { AiOutlineMinus, AiOutlineRobot, AiOutlineSend } from 'react-icons/ai';
 import { MdOutlineSupportAgent } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
-import type { ChatTurn, GeminiStatus } from '../types';
+import type { ChatTurn } from '../types';
 
 const CHIPS = [
   'Bao giờ con Robot đi được?',
@@ -13,21 +13,6 @@ const CHIPS = [
 
 const GREETING =
   'TRỢ LÝ TRỰC BAN đã trực tuyến. Tôi là linh hồn con chip bị sét đánh, giờ canh cái hầm này.';
-
-const MODELS = [
-  { id: 'gemini-2.0-flash', label: 'gemini-2.0-flash (Khuyên dùng)' },
-  { id: 'gemini-1.5-flash', label: 'gemini-1.5-flash' },
-  { id: 'gemini-2.0-flash-lite', label: 'gemini-2.0-flash-lite' },
-  { id: 'gemini-1.5-pro', label: 'gemini-1.5-pro' },
-];
-
-const STATUS_DESC: Record<GeminiStatus, { label: string; cls: string }> = {
-  online: { label: 'ONLINE — Sẵn sàng phục vụ', cls: 'text-emerald-300' },
-  invalid: { label: 'INVALID — Sai key hoặc hết quota', cls: 'text-red-400' },
-  no_key: { label: 'CHƯA CÀI KEY — Chế độ offline dự phòng', cls: 'text-amber-400' },
-  unreachable: { label: 'UNREACHABLE — Không kết nối được Google', cls: 'text-amber-400' },
-  locked: { label: 'LOCKED — Đang khóa', cls: 'text-cyan-200/50' },
-};
 
 interface Typing {
   text: string;
@@ -47,35 +32,12 @@ export function ChatWidget() {
   const greeted = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Key config state
-  const [showConfig, setShowConfig] = useState(false);
-  const [chatConfig, setChatConfig] = useState<{ hasKey: boolean; model: string; status: GeminiStatus } | null>(null);
-  const [keyInput, setKeyInput] = useState('');
-  const [modelInput, setModelInput] = useState('gemini-2.0-flash');
-  const [savingKey, setSavingKey] = useState(false);
-  const [saveMsg, setSaveMsg] = useState('');
-
-  // Fetch chat config khi mở
-  const loadConfig = async () => {
-    if (!client) return;
-    try {
-      const cfg = await client.getChatConfig();
-      setChatConfig(cfg);
-      if (cfg.model) setModelInput(cfg.model);
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
-    if (open) {
-      void loadConfig();
-      if (!greeted.current) {
-        greeted.current = true;
-        setTyping({ text: GREETING, shown: 0 });
-      }
+    if (open && !greeted.current) {
+      greeted.current = true;
+      setTyping({ text: GREETING, shown: 0 });
     }
-  }, [open, client]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Typewriter — AI gõ từng ký tự cho đúng chất máy ma.
   useEffect(() => {
@@ -111,23 +73,6 @@ export function ChatWidget() {
     setTyping({ text: r.reply, shown: 0 });
   };
 
-  const handleSaveKey = async () => {
-    if (!client) return;
-    setSavingKey(true);
-    setSaveMsg('');
-    try {
-      const res = await client.saveChatConfig(keyInput.trim(), modelInput.trim());
-      setChatConfig(res);
-      setKeyInput('');
-      setSaveMsg(res.status === 'online' ? '✅ Đã lưu vĩnh viễn! AI đã Online.' : `Đã lưu key. Trạng thái: ${res.status}`);
-      setTimeout(() => setSaveMsg(''), 4000);
-    } catch {
-      setSaveMsg('❌ Lưu thất bại, vui lòng thử lại.');
-    } finally {
-      setSavingKey(false);
-    }
-  };
-
   const dot = mode === 'live' ? 'dot-live' : mode === 'mock' ? 'dot-mock' : 'dot-dead';
 
   if (!open) {
@@ -143,10 +88,8 @@ export function ChatWidget() {
     );
   }
 
-  const currentStatus = chatConfig ? STATUS_DESC[chatConfig.status] ?? STATUS_DESC.no_key : STATUS_DESC.no_key;
-
   return (
-    <div className="chat-panel hud-panel fixed bottom-5 right-5 z-50 flex h-[520px] w-[390px] max-w-[94vw] flex-col overflow-hidden">
+    <div className="chat-panel hud-panel fixed bottom-5 right-5 z-50 flex h-[500px] w-[370px] max-w-[92vw] flex-col">
       {/* header */}
       <div className="flex items-center gap-2 border-b border-cyan-400/20 px-3 py-2">
         <span className={`chat-led dot ${dot}`} />
@@ -154,91 +97,13 @@ export function ChatWidget() {
           <div className="hud-title truncate text-[11px] text-[#2ee6ff]">TRỢ LÝ TRỰC BAN HẦM NGẦM</div>
           <div className="text-[9px] tracking-widest text-cyan-200/40">GHOSTLAB AI // ĐẮP CHIẾU EDITION</div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={() => setShowConfig((c) => !c)}
-            title="Cài đặt Gemini API Key (dùng chung cho mọi người)"
-            className={`border px-2 py-0.5 text-[11px] transition-colors ${
-              showConfig
-                ? 'border-amber-400 bg-amber-400/20 text-amber-200'
-                : 'border-cyan-400/30 text-cyan-200/70 hover:bg-cyan-400/10'
-            }`}
-          >
-            <AiOutlineSetting className="inline-block" />
-          </button>
-          <button
-            onClick={() => setOpen(false)}
-            className="border border-cyan-400/30 px-2 py-0.5 text-[11px] text-cyan-200/70 hover:bg-cyan-400/10"
-          >
-            <AiOutlineMinus className="inline-block" />
-          </button>
-        </div>
+        <button
+          onClick={() => setOpen(false)}
+          className="ml-auto border border-cyan-400/30 px-2 py-0.5 text-[11px] text-cyan-200/70 hover:bg-cyan-400/10"
+        >
+          <AiOutlineMinus className="inline-block" />
+        </button>
       </div>
-
-      {/* config popover / panel */}
-      {showConfig && (
-        <div className="border-b border-amber-400/30 bg-[#06101c]/95 p-3 text-[11px] space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-amber-300">CẤU HÌNH GEMINI API KEY</span>
-            <span className={`text-[10px] font-mono ${currentStatus.cls}`}>● {currentStatus.label}</span>
-          </div>
-          <div className="text-[10px] text-cyan-200/60 leading-relaxed">
-            Key được lưu trên server (vĩnh viễn). Chỉ cần cài một lần, bất kỳ ai vào web cũng có thể hỏi trực tiếp AI.
-          </div>
-          <div className="space-y-1">
-            <div className="text-[10px] text-cyan-200/80">GEMINI API KEY:</div>
-            <input
-              type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              placeholder={chatConfig?.hasKey ? '•••••••••••••••••••• (Đã có key, nhập mới để đổi)' : 'Dán key AIzaSy... vào đây'}
-              className="w-full border border-cyan-400/30 bg-black/50 px-2 py-1 text-cyan-100 outline-none placeholder:text-cyan-200/30 focus:border-cyan-300/60"
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="text-[10px] text-cyan-200/80">MODEL:</div>
-            <select
-              value={modelInput}
-              onChange={(e) => setModelInput(e.target.value)}
-              className="w-full border border-cyan-400/30 bg-[#081424] px-2 py-1 text-cyan-100 outline-none focus:border-cyan-300/60"
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={() => void handleSaveKey()}
-              disabled={savingKey || (!keyInput.trim() && !chatConfig?.hasKey)}
-              className="border border-emerald-400/50 bg-emerald-500/15 px-3 py-1 text-[11px] text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-40"
-            >
-              {savingKey ? 'ĐANG LƯU...' : 'LƯU VĨNH VIỄN'}
-            </button>
-            <button
-              onClick={() => void loadConfig()}
-              className="border border-cyan-400/30 px-2 py-1 text-[11px] text-cyan-200/70 hover:bg-cyan-400/10"
-              title="Kiểm tra lại kết nối"
-            >
-              <AiOutlineReload className="inline-block" />
-            </button>
-            {saveMsg && <span className="text-[10px] font-mono text-amber-300">{saveMsg}</span>}
-          </div>
-        </div>
-      )}
-
-      {/* notice when no key */}
-      {!showConfig && chatConfig && !chatConfig.hasKey && (
-        <div className="flex items-center justify-between border-b border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[10px] text-amber-200">
-          <span>Chưa cài Gemini Key (đang dùng câu đùa offline)</span>
-          <button
-            onClick={() => setShowConfig(true)}
-            className="underline font-bold text-amber-300 hover:text-white"
-          >
-            Cài ngay
-          </button>
-        </div>
-      )}
 
       {/* messages */}
       <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-2">

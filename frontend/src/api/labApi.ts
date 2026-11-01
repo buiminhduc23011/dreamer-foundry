@@ -47,8 +47,6 @@ export interface LabClient {
   getAdminStatus(adminKey: string | null): Promise<AdminStatus>;
   initAdmin(adminKey: string): Promise<boolean>;
   saveGeminiKey(adminKey: string, apiKey: string, model: string): Promise<AdminStatus>;
-  getChatConfig(): Promise<{ hasKey: boolean; model: string; status: GeminiStatus }>;
-  saveChatConfig(apiKey: string, model?: string): Promise<{ hasKey: boolean; model: string; status: GeminiStatus }>;
   boomAll(): Promise<void>;
   dispose(): void;
 }
@@ -174,12 +172,6 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
       fetchJson<AdminStatus>('/api/admin/gemini-key', {
         method: 'POST',
         headers: { 'X-Admin-Key': adminKey },
-        body: JSON.stringify({ apiKey, model }),
-      }),
-    getChatConfig: () => fetchJson<{ hasKey: boolean; model: string; status: GeminiStatus }>('/api/chat/config'),
-    saveChatConfig: (apiKey, model) =>
-      fetchJson<{ hasKey: boolean; model: string; status: GeminiStatus }>('/api/chat/config', {
-        method: 'POST',
         body: JSON.stringify({ apiKey, model }),
       }),
     boomAll: () => post('/api/hazard/boom-all'),
@@ -342,18 +334,9 @@ function createMockClient(handlers: LabHandlers): LabClient {
       }
       return { reply, offline: true };
     },
-    getAdminStatus: async () => ({ adminSet: false, keyConfigured: false, model: 'gemini-2.0-flash', geminiStatus: 'no_key' }),
+    getAdminStatus: async () => ({ adminSet: false, keyConfigured: false, model: 'gemini-3.5-flash-lite', geminiStatus: 'no_key' }),
     initAdmin: async () => true,
-    saveGeminiKey: async (_k, _a, model) => ({ adminSet: true, keyConfigured: true, model: model || 'gemini-2.0-flash', geminiStatus: 'online' }),
-    getChatConfig: async () => {
-      const k = localStorage.getItem('ghostlab_mock_gemini_key') ?? '';
-      return { hasKey: !!k, model: 'gemini-2.0-flash', status: (k ? 'online' : 'no_key') as GeminiStatus };
-    },
-    saveChatConfig: async (apiKey, model = 'gemini-2.0-flash') => {
-      if (apiKey) localStorage.setItem('ghostlab_mock_gemini_key', apiKey);
-      else localStorage.removeItem('ghostlab_mock_gemini_key');
-      return { hasKey: !!apiKey, model, status: (apiKey ? 'online' : 'no_key') as GeminiStatus };
-    },
+    saveGeminiKey: async (_k, _a, model) => ({ adminSet: true, keyConfigured: true, model: model || 'gemini-3.5-flash-lite', geminiStatus: 'online' }),
     boomAll: async () => {
       for (const p of projects) p.smoking = true;
       stats.mosfetExplosions += projects.length;
