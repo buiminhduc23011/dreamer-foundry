@@ -1,19 +1,18 @@
 import type { IconType } from 'react-icons';
-import { AiOutlineFire, AiOutlineHome, AiOutlineRobot } from 'react-icons/ai';
+import { AiOutlineHome, AiOutlineRobot } from 'react-icons/ai';
 import { GiDeliveryDrone, GiGhost } from 'react-icons/gi';
-import { MdForklift, MdOutlineRadar, MdOutlineVideocam } from 'react-icons/md';
+import { MdDeveloperBoard, MdOutlineHub, MdOutlineVideocam } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
 
 const ICONS: Record<string, IconType> = {
   'fork-eye': MdOutlineVideocam,
-  'smoke-trap': AiOutlineFire,
+  'remote-io': MdDeveloperBoard,
+  'jarvis-core': MdOutlineHub,
   'sky-ghost': GiDeliveryDrone,
-  'ghost-agv': MdForklift,
   'iron-biped': AiOutlineRobot,
-  'amr-slam': MdOutlineRadar,
 };
 
-/** Bottom-center quick nav — jump the camera to a pedestal (dock tự sinh theo roster). */
+/** Bottom-center quick nav — jump the camera to a workstation (dock tự sinh theo roster). */
 export function NavDock() {
   const projects = useLabStore((s) => s.projects);
   const selectedId = useLabStore((s) => s.selectedId);

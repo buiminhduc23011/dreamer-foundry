@@ -1,6 +1,5 @@
-import { AiOutlineAlert, AiOutlineBulb, AiOutlineFire, AiOutlineThunderbolt, AiOutlineWarning } from 'react-icons/ai';
-import { GiGraveyard } from 'react-icons/gi';
-import { MdOutlineAir, MdOutlineHardware, MdOutlineWhatshot } from 'react-icons/md';
+import { AiOutlineFire, AiOutlineWarning } from 'react-icons/ai';
+import { MdOutlineHardware, MdOutlineWhatshot } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
 import { AudioDeck } from './AudioDeck';
 
@@ -10,12 +9,7 @@ const modeDot = { connecting: 'dot-dead', live: 'dot-live', mock: 'dot-mock' } a
 export function TopBar() {
   const mode = useLabStore((s) => s.mode);
   const stats = useLabStore((s) => s.stats);
-  const togglePanic = useLabStore((s) => s.togglePanic);
-  const setGraveyardOpen = useLabStore((s) => s.setGraveyardOpen);
-  const setIdeasOpen = useLabStore((s) => s.setIdeasOpen);
-  const brownout = useLabStore((s) => s.brownout);
   const brownoutActive = useLabStore((s) => s.brownoutActive);
-  const cleanAll = useLabStore((s) => s.cleanAll);
   const sagging = (stats?.voltageSagging ?? false) || brownoutActive;
 
   return (
@@ -55,45 +49,9 @@ export function TopBar() {
         </span>
       </div>
 
-      {/* lab hazard + action buttons */}
+      {/* audio controls */}
       <div className="pointer-events-auto flex gap-2">
         <AudioDeck />
-        <button
-          onClick={brownout}
-          disabled={brownoutActive}
-          className={`hud-panel px-3 py-2 font-mono text-[10px] transition-colors ${brownoutActive ? 'bg-amber-glow/20 text-amber-glow animate-pulse' : 'text-holo/90 hover:bg-holo/10'}`}
-          title="Test quá tải nguồn — sụt rail còn 3.2V trong 2 giây"
-        >
-          <AiOutlineThunderbolt className="inline-block align-[-2px] text-[13px]" /> QUÁ TẢI
-        </button>
-        <button
-          onClick={cleanAll}
-          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
-          title="Xịt khí nén vệ sinh toàn lab — bụi về 0%"
-        >
-          <MdOutlineAir className="inline-block align-[-2px] text-[13px]" /> XỊT BỤI
-        </button>
-        <button
-          onClick={() => void setGraveyardOpen(true)}
-          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
-          title="Nghĩa địa linh kiện"
-        >
-          <GiGraveyard className="inline-block align-[-2px] text-[13px]" /> NGHĨA ĐỊA
-        </button>
-        <button
-          onClick={() => void setIdeasOpen(true)}
-          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
-          title="Xúi dại kỹ sư"
-        >
-          <AiOutlineBulb className="inline-block align-[-2px] text-[13px]" /> XÚI DẠI
-        </button>
-        <button
-          onClick={togglePanic}
-          className="hud-panel hud-panel-amber px-3 py-2 font-mono text-[10px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/10"
-          title="Quyền năng tối thượng của mọi kỹ sư"
-        >
-          <AiOutlineAlert className="inline-block align-[-2px] text-[13px]" /> SẾP/VỢ TỚI
-        </button>
       </div>
     </header>
   );

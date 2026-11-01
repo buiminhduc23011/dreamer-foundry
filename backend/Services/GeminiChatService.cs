@@ -85,8 +85,8 @@ public class GeminiChatService
         {
             return Pick(new[]
             {
-                $"Kẻ Mộng Mơ đang trốn sau đống board mạch cháy dở khu vực hàn. Lý do mới nhất vừa telemetry về: \"{s.RandomExcuse()}\". Đừng tìm, tìm ra lại bị bắt đi gánh nợ linh kiện.",
-                $"Nghe đồn Kẻ Mộng Mơ đang ngồi ngắm bụi rơi trên khung xe AMR để lấy cảm hứng viết lại firmware từ đầu.",
+                $"Kẻ Mộng Mơ đang trốn sau đống board mạch cháy dở khu vực tủ PLC. Lý do mới nhất vừa telemetry về: \"{s.RandomExcuse()}\". Đừng tìm, tìm ra lại bị bắt đi gánh nợ linh kiện.",
+                $"Nghe đồn Kẻ Mộng Mơ đang ngồi ngắm đèn đỏ BF/SF trên thanh ray Remote I/O nhấp nháy để lấy cảm hứng viết lại firmware từ đầu.",
                 $"Chủ xưởng đã ngắt kết nối với thực tại để tập trung vào việc... trì hoãn deadline. Cần gì cứ thắp hương trước cửa phòng."
             });
         }
@@ -178,23 +178,33 @@ public class GeminiChatService
             });
         }
 
-        // Smoke trap / Hàn / Hút khói
-        if (q.Contains("hàn") || q.Contains("hút khói") || q.Contains("smoke"))
+        // Remote I/O / Siemens / PLC / PROFINET
+        if (q.Contains("remote") || q.Contains("siemens") || q.Contains("plc") || q.Contains("profinet") || q.Contains("et200") || q.Contains("io"))
         {
             return Pick(new[]
             {
-                "Trạm hút khói PRJ-SMOKE-TRAP sinh ra để bảo vệ phổi, nhưng tiếng quạt to hơn cả máy cày nên hiện tại kỹ sư điếc tai trước khi kịp ngửi thấy khói.",
-                "Cái máy hút khói đó đang hút bụi vào nhiều hơn hút khói ra. Đang tính đổi tên thành 'Máy thổi bụi đa năng'."
+                "Bộ PRJ-REMOTE-IO định làm đối thủ sừng sỏ của Siemens ET 200SP, mà hiện tại đèn đỏ SF/BF sáng rực như đèn lồng Tết, cắm vào TIA Portal không nhận họ hàng.",
+                "Remote I/O đang kẹt vụ hôm trước ai đấu nhầm 220VAC vào chân DI 24V làm 4 con opto PC817 bay nóc. Giờ rút 1 slice ra là treo cứng cả backplane."
             });
         }
 
-        // Xe AMR / AGV / Lidar
-        if (q.Contains("amr") || q.Contains("agv") || q.Contains("xe") || q.Contains("lidar"))
+        // Jarvis / Tony Stark / Hologram / AI trung tâm
+        if (q.Contains("jarvis") || q.Contains("javis") || q.Contains("tony") || q.Contains("stark") || q.Contains("hologram"))
         {
             return Pick(new[]
             {
-                "Con xe AMR vừa xoay vòng trầm cảm 3 vòng giữa sàn rồi tự tông vào chân bàn. Nó bảo cảm biến LiDAR nhìn thấy tương lai cái xưởng này mịt mù quá nên không muốn chạy.",
-                "AGV đang trong trạng thái 'tái cân bằng hệ tọa độ' — dịch ra tiếng người là nó bị lạc ngay trong căn phòng 20 mét vuông."
+                "Cụm PRJ-JARVIS-CORE ở giữa phòng xoay vòng vàng cam nhìn y hệt phim Tony Stark đấy, trừ việc hỏi 'Mấy giờ rồi?' thì ngâm 45 giây tràn VRAM rồi bật nhầm bình nóng lạnh.",
+                "J.A.R.V.I.S. bản hầm ngầm này tốn 90% ngân sách để render mấy cái vòng xoay cho ngầu, còn nhận diện giọng nói thì chủ xưởng ho một tiếng nó tưởng lệnh Format ổ C."
+            });
+        }
+
+        // Drone / Sky ghost
+        if (q.Contains("drone") || q.Contains("bay") || q.Contains("sky") || q.Contains("cánh quạt"))
+        {
+            return Pick(new[]
+            {
+                "Con PRJ-SKY-GHOST giờ bị xích chặt 4 góc vào giàn nhôm trên mặt bàn rồi, sau vụ nó chém rèm cửa thành 4 mảnh đều tăm tắp. Tune PID 412 lần vẫn lắc theo nhạc Vinahey.",
+                "Drone đang treo thử tải trên bàn test, 1 motor cháy ESC thỉnh thoảng lại xẹt lửa điện cho phòng lab thêm phần ấm cúng."
             });
         }
 
@@ -218,7 +228,7 @@ public class GeminiChatService
             "Tôi chỉ là một con chip cháy trực ban, hỏi mấy câu triết học thế IC não tôi lại bốc khói bây giờ.",
             "Chủ dự án còn đang bận mơ mộng, tôi trực ban thì chỉ biết khuyên bạn: tắt nguồn đi ngủ đi, mai dậy mạch vẫn hỏng y nguyên.",
             "Vấn đề này cần giải quyết bằng tiền, mà xưởng này cái gì cũng có trừ tiền.",
-            "Tôi vừa hỏi con LiDAR ngoài sàn, nó bảo: 'Đừng hỏi nữa, tôi đang trầm cảm'. Bạn cứ tự hiểu đi.",
+            "Tôi vừa hỏi cụm J.A.R.V.I.S. ngoài bàn kính, nó bảo: 'Đừng hỏi nữa, tôi đang tràn VRAM'. Bạn cứ tự hiểu đi.",
             "Lỗi này mang tính tâm linh sâu sắc, không có trong datasheet của loài người.",
             "Bạn hỏi câu này làm quạt tản nhiệt của tôi hú lên một tiếng ai oán rồi tắt ngúm.",
             "Debug tip cấp hầm: tắt nguồn bật lại, nếu không hết thì thắp 3 nén hương điện tử, nếu vẫn không hết thì đi về.",

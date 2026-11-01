@@ -443,159 +443,90 @@ class LabAudioEngine {
       });
     }
 
-    // 2. PRJ-AMR-SLAM (Robot tự hành đa hướng 4 cụm Swerve chạy sống quanh phòng!)
+    // 2. PRJ-REMOTE-IO (Tủ PLC / Remote I/O Siemens ET 200SP — nguồn xung 24V + rơ-le đóng cắt lách tách)
     {
-      const panner = this.makePanner(ctx, 0, 0.35, 2.4, 3.2);
+      const panner = this.makePanner(ctx, -3.2, 1.05, -5.4, 2.6);
       const gain = ctx.createGain();
-      gain.gain.value = 0.26;
+      gain.gain.value = 0.17;
 
-      // Tiếng servo truyền động bánh Swerve BLDC + hộp số hành tinh
-      const servo1 = ctx.createOscillator();
-      const servo2 = ctx.createOscillator();
-      servo1.type = 'triangle';
-      servo2.type = 'sine';
-      servo1.frequency.value = 142;
-      servo2.frequency.value = 286;
-
-      const servoFilter = ctx.createBiquadFilter();
-      servoFilter.type = 'bandpass';
-      servoFilter.frequency.value = 380;
-      servoFilter.Q.value = 2.2;
-
-      const sg1 = ctx.createGain();
-      const sg2 = ctx.createGain();
-      sg1.gain.value = 0.22;
-      sg2.gain.value = 0.12;
-      servo1.connect(sg1);
-      servo2.connect(sg2);
-      sg1.connect(servoFilter);
-      sg2.connect(servoFilter);
-
-      // Tiếng bánh xe polyurethane lăn trên nền bê tông + motor LiDAR quay 10Hz
-      const rollNoise = this.makeLoopingNoise(ctx);
-      const rollLp = ctx.createBiquadFilter();
-      rollLp.type = 'bandpass';
-      rollLp.frequency.value = 165;
-      rollLp.Q.value = 1.3;
-      const rollGain = ctx.createGain();
-      rollGain.gain.value = 0.28;
-
-      const lidarOsc = ctx.createOscillator();
-      lidarOsc.type = 'sine';
-      lidarOsc.frequency.value = 620;
-      const lidarGain = ctx.createGain();
-      lidarGain.gain.value = 0.025;
-      const lidarLfo = ctx.createOscillator();
-      lidarLfo.frequency.value = 10.5;
-      const lidarLfoDepth = ctx.createGain();
-      lidarLfoDepth.gain.value = 0.018;
-      lidarLfo.connect(lidarLfoDepth);
-      lidarLfoDepth.connect(lidarGain.gain);
-      lidarOsc.start();
-      lidarLfo.start();
-
-      rollNoise.connect(rollLp);
-      rollLp.connect(rollGain);
-      servoFilter.connect(gain);
-      rollGain.connect(gain);
-      lidarOsc.connect(lidarGain);
-      lidarGain.connect(gain);
+      const psu = ctx.createOscillator();
+      psu.type = 'triangle';
+      psu.frequency.value = 100;
+      const psuG = ctx.createGain();
+      psuG.gain.value = 0.08;
+      psu.connect(psuG);
+      psuG.connect(gain);
       gain.connect(panner);
       panner.connect(this.sfxBus);
-      servo1.start();
-      servo2.start();
+      psu.start();
 
-      this.machines.set('amr-slam', {
+      let nextRelay = 1.2;
+      this.machines.set('remote-io', {
         panner,
         gain,
         update: (t) => {
-          // Cao độ servo thay đổi theo tốc độ thực của AMR trên sàn!
-          const spd = Math.min(2.2, this.amrSpeed);
-          const pitch = 128 + spd * 42 + Math.sin(t * 3.4) * 5;
-          servo1.frequency.value = pitch;
-          servo2.frequency.value = pitch * 2.02;
-          servoFilter.frequency.value = 310 + spd * 140;
-        },
-      });
-    }
-
-    // 3. PRJ-SMOKE-TRAP (Quạt ly tâm hút khói + mũi mỏ hàn xèo nhựa thông)
-    {
-      const panner = this.makePanner(ctx, -3.4, 0.8, -5.2, 2.5);
-      const gain = ctx.createGain();
-      gain.gain.value = 0.20;
-
-      const air = this.makeLoopingNoise(ctx);
-      const airBp = ctx.createBiquadFilter();
-      airBp.type = 'bandpass';
-      airBp.frequency.value = 480;
-      airBp.Q.value = 0.75;
-
-      const turbine = ctx.createOscillator();
-      turbine.type = 'sine';
-      turbine.frequency.value = 116;
-      const turbGain = ctx.createGain();
-      turbGain.gain.value = 0.14;
-
-      air.connect(airBp);
-      airBp.connect(gain);
-      turbine.connect(turbGain);
-      turbGain.connect(gain);
-      gain.connect(panner);
-      panner.connect(this.sfxBus);
-      turbine.start();
-
-      this.machines.set('smoke-trap', {
-        panner,
-        gain,
-        update: (t) => {
-          turbine.frequency.value = 116 + Math.sin(t * 0.9) * 3.5;
-        },
-      });
-    }
-
-    // 4. PRJ-GHOST-AGV (Xe tự hành kho xưởng Neobotix + tiếng chuông cảnh báo AGV nhà máy)
-    {
-      const panner = this.makePanner(ctx, 3.4, 0.6, -5.2, 2.5);
-      const gain = ctx.createGain();
-      gain.gain.value = 0.16;
-
-      const inv = ctx.createOscillator();
-      inv.type = 'triangle';
-      inv.frequency.value = 98;
-      const invLp = ctx.createBiquadFilter();
-      invLp.type = 'lowpass';
-      invLp.frequency.value = 240;
-      const invG = ctx.createGain();
-      invG.gain.value = 0.12;
-      inv.connect(invLp);
-      invLp.connect(invG);
-      invG.connect(gain);
-      gain.connect(panner);
-      panner.connect(this.sfxBus);
-      inv.start();
-
-      let nextBeep = 2.0;
-      this.machines.set('ghost-agv', {
-        panner,
-        gain,
-        update: (t) => {
-          if (t > nextBeep && this.ctx && this.ctx.state === 'running' && !this.muted && !this.panicMuted) {
-            nextBeep = t + 3.8 + Math.random() * 1.4;
-            this.playSpatialTone(panner, 880, 0.11, 0.045, 'sine');
+          if (t > nextRelay && this.ctx && this.ctx.state === 'running' && !this.muted && !this.panicMuted) {
+            nextRelay = t + 1.6 + Math.random() * 2.4;
+            // Tiếng tiếp điểm cơ khí rơ-le 24VDC nhảy lách tách do nhiễu biến tần
+            this.playSpatialTone(panner, 2650, 0.018, 0.04, 'square');
             setTimeout(() => {
               if (this.ctx && !this.muted && !this.panicMuted) {
-                this.playSpatialTone(panner, 659.25, 0.14, 0.038, 'sine');
+                this.playSpatialTone(panner, 1980, 0.016, 0.032, 'triangle');
               }
-            }, 140);
+            }, 95);
           }
         },
       });
     }
 
-    // 5. PRJ-FORK-EYE (Bơm thủy lực chờ + quạt tản nhiệt OAK-1 W)
+    // 3. PRJ-JARVIS-CORE (Lõi Hologram J.A.R.V.I.S. trung tâm — hòa âm cộng hưởng từ trường + xung dữ liệu AI)
     {
-      const panner = this.makePanner(ctx, -6.2, 1.0, -2.0, 2.5);
+      const panner = this.makePanner(ctx, 0.0, 1.4, -0.8, 3.4);
+      const gain = ctx.createGain();
+      gain.gain.value = 0.18;
+
+      const h1 = ctx.createOscillator();
+      const h2 = ctx.createOscillator();
+      h1.type = 'sine';
+      h2.type = 'sine';
+      h1.frequency.value = 220;
+      h2.frequency.value = 330.5;
+      const hg1 = ctx.createGain();
+      const hg2 = ctx.createGain();
+      hg1.gain.value = 0.055;
+      hg2.gain.value = 0.038;
+      h1.connect(hg1);
+      h2.connect(hg2);
+      hg1.connect(gain);
+      hg2.connect(gain);
+      gain.connect(panner);
+      panner.connect(this.sfxBus);
+      h1.start();
+      h2.start();
+
+      let nextChirp = 2.0;
+      this.machines.set('jarvis-core', {
+        panner,
+        gain,
+        update: (t) => {
+          h1.frequency.value = 220 + Math.sin(t * 1.3) * 3;
+          h2.frequency.value = 330.5 + Math.cos(t * 1.7) * 4;
+          if (t > nextChirp && this.ctx && this.ctx.state === 'running' && !this.muted && !this.panicMuted) {
+            nextChirp = t + 3.2 + Math.random() * 2.8;
+            this.playSpatialTone(panner, 1320, 0.06, 0.026, 'sine');
+            setTimeout(() => {
+              if (this.ctx && !this.muted && !this.panicMuted) {
+                this.playSpatialTone(panner, 1760, 0.08, 0.022, 'sine');
+              }
+            }, 85);
+          }
+        },
+      });
+    }
+
+    // 4. PRJ-FORK-EYE (Bơm thủy lực chờ + quạt tản nhiệt OAK-1 W)
+    {
+      const panner = this.makePanner(ctx, -6.0, 1.0, -1.8, 2.5);
       const gain = ctx.createGain();
       gain.gain.value = 0.15;
 
@@ -614,9 +545,9 @@ class LabAudioEngine {
       this.machines.set('fork-eye', { panner, gain });
     }
 
-    // 6. PRJ-IRON-BIPED (Xung giữ moment QDD BLDC actuator + rơ-le CAN-FD)
+    // 5. PRJ-IRON-BIPED (Xung giữ moment QDD BLDC actuator + rơ-le CAN-FD)
     {
-      const panner = this.makePanner(ctx, 6.2, 1.1, -2.0, 2.5);
+      const panner = this.makePanner(ctx, 6.0, 1.1, -1.8, 2.5);
       const gain = ctx.createGain();
       gain.gain.value = 0.14;
 
