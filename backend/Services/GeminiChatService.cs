@@ -36,9 +36,18 @@ public class GeminiChatService
         try
         {
             var res = await _http.GetAsync($"https://generativelanguage.googleapis.com/v1beta/models/{_secrets.Model}?key={_secrets.GeminiApiKey}");
+            if (!res.IsSuccessStatusCode)
+            {
+                var err = await res.Content.ReadAsStringAsync();
+                Console.WriteLine($"[GeminiChat] Ping model status failed ({res.StatusCode}) for model '{_secrets.Model}': {err}");
+            }
             _statusCache = res.IsSuccessStatusCode ? "online" : "invalid";
         }
-        catch { _statusCache = "unreachable"; }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GeminiChat] Ping model unreachable: {ex.Message}");
+            _statusCache = "unreachable";
+        }
         _statusChecked = DateTime.UtcNow;
         return _statusCache;
     }
@@ -263,6 +272,7 @@ public class GeminiChatService
 
             if (!res.IsSuccessStatusCode)
             {
+                Console.WriteLine($"[GeminiChat] generateContent failed ({res.StatusCode}) on model '{_secrets.Model}': {raw}");
                 _statusChecked = DateTime.MinValue; // ép status check lại lần sau
                 return (GenerateFallbackReply(message), true);
             }
@@ -276,13 +286,9 @@ public class GeminiChatService
                 .GetString();
             return (string.IsNullOrWhiteSpace(text) ? GenerateFallbackReply(message) : text, false);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex)
         {
-            return (GenerateFallbackReply(message), true);
-        }
-        catch
-        {
-            // Parse/vận hành hỏng → cũng coi như trạm não trả rác, vẫn trả lời cợt nhả
+            Console.WriteLine($"[GeminiChat] Exception calling Gemini API: {ex.Message}");
             return (GenerateFallbackReply(message), true);
         }
     }

@@ -25,7 +25,7 @@ export function SecretAdmin() {
   const [needsInit, setNeedsInit] = useState<boolean | null>(null);
   const [status, setStatus] = useState<AdminStatus | null>(null);
   const [keyInput, setKeyInput] = useState('');
-  const [modelInput, setModelInput] = useState('gemini-3.5-flash-lite');
+  const [modelInput, setModelInput] = useState('gemini-2.0-flash');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [log, setLog] = useState<string[]>(['GHOSTLAB CENTRAL COMMAND khởi động — phiên bí mật, không lưu dấu.']);
   const press = useRef({ n: 0, at: 0 });

@@ -272,6 +272,32 @@ api.MapPost("/chat", async (ChatRequest req, GeminiChatService chat) =>
     return Results.Ok(new { reply = r.Text, offline = r.Offline });
 });
 
+api.MapGet("/chat/config", async (ChatSecretsService sec, GeminiChatService chat) =>
+{
+    var status = await chat.GetStatusAsync();
+    return Results.Ok(new
+    {
+        hasKey = sec.HasGeminiKey,
+        model = sec.Model,
+        status
+    });
+});
+
+api.MapPost("/chat/config", async (GeminiKeyRequest req, ChatSecretsService sec, GeminiChatService chat) =>
+{
+    var key = (req.ApiKey ?? "").Trim();
+    var model = string.IsNullOrWhiteSpace(req.Model) ? "gemini-2.0-flash" : req.Model.Trim();
+    sec.SetGeminiKeyDirect(key, model);
+    chat.InvalidateStatus();
+    var status = await chat.GetStatusAsync();
+    return Results.Ok(new
+    {
+        hasKey = sec.HasGeminiKey,
+        model = sec.Model,
+        status
+    });
+});
+
 // ---- Admin bí mật — chỉ đường link huyền thoại mới dẫn tới ----
 static bool IsAdmin(HttpRequest r, ChatSecretsService sec) => sec.CheckAdmin(r.Headers["X-Admin-Key"].FirstOrDefault());
 
