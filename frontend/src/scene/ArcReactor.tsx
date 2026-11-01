@@ -38,12 +38,12 @@ export function ArcReactor({ sagging, brownout }: { sagging: boolean; brownout: 
   return (
     <group position={[0, 0.02, -1]}>
       {/* recessed floor socket */}
-      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -0.01, 0]}>
         <cylinderGeometry args={[1.5, 1.5, 0.06, 48]} />
         <meshStandardMaterial color="#0a121a" metalness={0.8} roughness={0.5} />
       </mesh>
       {/* glowing core disc */}
-      <mesh ref={core} position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={core} position={[0, 0.045, 0]}>
         <cylinderGeometry args={[0.75, 0.75, 0.05, 48]} />
         <meshBasicMaterial ref={coreMat} color="#2ee6ff" />
       </mesh>

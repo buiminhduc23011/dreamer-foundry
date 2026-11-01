@@ -154,7 +154,7 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
         if (!res.ok) throw new Error(`chat → ${res.status}`);
         return (await res.json()) as ChatReply;
       } catch {
-        return { reply: 'Đường dây tới trạm não đứt gánh — chủ dự án bảo "mạng đắt thế, gửi chim bồ câu đi". Thử lại sau.', offline: true };
+        return { reply: 'Linh hồn con chip trực ban đã nhận câu hỏi nhưng đang bận ngắm bụi phủ trên board mạch. Cứ tắt đi bật lại hoặc thắp nén hương xem sao.', offline: true };
       }
     },
     getAdminStatus: (adminKey) =>

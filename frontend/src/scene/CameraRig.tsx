@@ -7,152 +7,114 @@ import { amrWorldPos } from './GhostModels';
 
 const HOME_POS = new THREE.Vector3(0, 5.2, 11.5);
 const HOME_TGT = new THREE.Vector3(0, 1.2, -2.6);
-const AMR_ID = 'amr-slam'; // con duy nhất không đứng yên — camera phải bám theo
+const AMR_ID = 'amr-slam';
 const TMP = new THREE.Vector3();
-
-// Quỹ đạo orbit toàn cảnh của cinematic tour — không zoom vào từng dự án.
-const TOUR_CENTER = new THREE.Vector3(0, 1.1, -0.8);
-const TOUR_RX = 11.8;
-const TOUR_RZ = 10.6;
-const TOUR_H = 5.3;
-
-const IDLE_DELAY_S = 6;    // giây im lặng trước khi tour tự chạy
-const LERP_K = 1.55;       // tốc độ damp của glide cinematic
-const ORBIT_SPEED = 0.075; // rad/s — một vòng ~84s, nhẹ từ từ
+const LERP_K = 4.2;
 
 /**
- * Cinematic Museum Rig — idle 6s là camera bay orbit êm quanh toàn cảnh lab
- * như flyover documentary; click/select vẫn glide cận cảnh từng workbench.
+ * Điều khiển Camera tự do bằng chuột/cảm ứng (không tự xoay Cinematic Tour).
+ * Khi bấm chọn dự án hoặc nút TỔNG QUAN thì camera lướt mượt tới góc nhìn tương ứng.
  */
 export function CameraRig() {
   const controls = useRef<CameraControls>(null);
-  const { camera, gl } = useThree();
+  const { camera } = useThree();
 
   const cur = useRef(HOME_POS.clone());
   const curTgt = useRef(HOME_TGT.clone());
   const goal = useRef(HOME_POS.clone());
   const goalTgt = useRef(HOME_TGT.clone());
-  const baseOffset = useRef(new THREE.Vector3());
+  const baseOffset = useRef(new THREE.Vector3(1.3, 2.0, 3.8));
   const driving = useRef(false);
-  const focusKey = useRef('');
-  const tourAngle = useRef(0);
-  const tourStartT = useRef(0);
+  const amrChasing = useRef(false);
+  const initialized = useRef(false);
+  const focusKey = useRef('init');
+  const lastHomeNonce = useRef(0);
   const lastShake = useRef(0);
   const shakeStart = useRef(-1);
 
-  // User input bất kỳ → cắt tour, trả điều khiển về tay.
+  // Khi người dùng chủ động kéo/lăn chuột → nhả lái tự động ngay để không giằng chuột
   useEffect(() => {
-    const act = () => useLabStore.getState().recordActivity();
-    const el = gl.domElement;
-    window.addEventListener('pointerdown', act, { passive: true });
-    window.addEventListener('keydown', act, { passive: true });
-    el.addEventListener('wheel', act, { passive: true });
     const c = controls.current;
-    const onGrab = () => act();
-    c?.addEventListener('controlstart', onGrab);
-    return () => {
-      window.removeEventListener('pointerdown', act);
-      window.removeEventListener('keydown', act);
-      el.removeEventListener('wheel', act);
-      c?.removeEventListener('controlstart', onGrab);
+    if (!c) return;
+    const stopAuto = () => {
+      driving.current = false;
+      amrChasing.current = false;
     };
-  }, [gl]);
+    c.addEventListener('controlstart', stopAuto);
+    return () => {
+      c.removeEventListener('controlstart', stopAuto);
+    };
+  }, []);
 
   useFrame(({ clock }, dt) => {
     const s = useLabStore.getState();
     const c = controls.current;
     const t = clock.elapsedTime;
-    const projects = s.projects;
+    if (!c) return;
 
-    // ---- idle 6s → bật cinematic orbit toàn cảnh ----
-    if (!s.tourActive && projects.length > 0 && Date.now() - s.lastActivity > IDLE_DELAY_S * 1000) {
-      tourStartT.current = t;
-      s.setTour(true, null);
+    if (!initialized.current) {
+      initialized.current = true;
+      c.setLookAt(HOME_POS.x, HOME_POS.y, HOME_POS.z, HOME_TGT.x, HOME_TGT.y, HOME_TGT.z, false);
+      focusKey.current = s.selectedId ? `sel:${s.selectedId}` : 'none';
+      lastHomeNonce.current = s.homeNonce;
     }
 
-    // ---- resolve focus → điểm đến mới khi focus đổi ----
-    const focus = s.tourActive
-      ? 'tour'
-      : s.selectedId
-        ? `sel:${s.selectedId}`
-        : 'none';
-    if (focus !== focusKey.current) {
-      const wasTour = focusKey.current === 'tour';
+    const focus = s.selectedId ? `sel:${s.selectedId}` : 'none';
+    const homeReset = s.homeNonce !== lastHomeNonce.current;
+
+    if (focus !== focusKey.current || homeReset) {
       focusKey.current = focus;
+      lastHomeNonce.current = s.homeNonce;
 
-      const setProjectGoal = (id: string | null) => {
-        const p = projects.find((x) => x.id === id);
-        if (!p) return false;
-        // AMR đang lang thang — chốt offset đuổi theo thay vì bám tọa độ tĩnh.
-        if (id === AMR_ID) {
-          goalTgt.current.copy(amrWorldPos);
-          goalTgt.current.y += 0.45;
-          goal.current.copy(goalTgt.current).add(TMP.set(1.3, 2.0, 3.8));
-          return true;
-        }
-        const [x, y, z] = p.position;
-        goal.current.set(x * 0.55, y + 1.9, z + 4.7);
-        goalTgt.current.set(x, y + 1.0, z);
-        return true;
-      };
+      // Đọc vị trí camera hiện tại từ CameraControls để chuyển cảnh mượt từ đúng chỗ đang đứng
+      c.getPosition(cur.current);
+      c.getTarget(curTgt.current);
 
-      if (focus === 'tour') {
-        // Chốt góc orbit theo vị trí camera hiện tại → vào quỹ đạo liền mạch.
-        tourAngle.current = Math.atan2(
-          (cur.current.x - TOUR_CENTER.x) / TOUR_RX,
-          (cur.current.z - TOUR_CENTER.z) / TOUR_RZ,
-        );
-        tourStartT.current = t;
-        goalTgt.current.copy(TOUR_CENTER);
+      if (focus === 'none') {
+        goal.current.copy(HOME_POS);
+        goalTgt.current.copy(HOME_TGT);
+        amrChasing.current = false;
         driving.current = true;
-      } else if (focus === 'none') {
-        // Tour bị cắt giữa chừng → giữ nguyên vị trí; user deselect → glide về wide shot.
-        if (wasTour) driving.current = false;
-        else {
-          goal.current.copy(HOME_POS);
-          goalTgt.current.copy(HOME_TGT);
-          driving.current = true;
-        }
       } else {
-        const id = focus.slice(focus.indexOf(':') + 1);
-        if (setProjectGoal(id)) {
-          baseOffset.current.subVectors(goal.current, goalTgt.current);
+        const id = s.selectedId;
+        const p = s.projects.find((x) => x.id === id);
+        if (p) {
+          if (id === AMR_ID) {
+            goalTgt.current.copy(amrWorldPos);
+            goalTgt.current.y += 0.45;
+            goal.current.copy(goalTgt.current).add(TMP.set(1.3, 2.0, 3.8));
+            baseOffset.current.subVectors(goal.current, goalTgt.current);
+            amrChasing.current = true;
+          } else {
+            const [x, y, z] = p.position;
+            goal.current.set(x * 0.55, y + 1.9, z + 4.7);
+            goalTgt.current.set(x, y + 1.0, z);
+            amrChasing.current = false;
+          }
           driving.current = true;
         }
       }
     }
 
-    // ---- AMR tracking: target bám theo vị trí sống của con robot lang thang ----
-    const amrFocused = !s.tourActive && s.selectedId === AMR_ID;
-    if (amrFocused) {
+    // Nếu đang chọn AMR và chưa kéo chuột thủ công thì bám theo robot đang chạy
+    if (amrChasing.current && s.selectedId === AMR_ID) {
       goalTgt.current.copy(amrWorldPos);
       goalTgt.current.y += 0.45;
-      if (!s.tourActive) goal.current.copy(goalTgt.current).add(baseOffset.current);
+      goal.current.copy(goalTgt.current).add(baseOffset.current);
       driving.current = true;
     }
 
-    // ---- cinematic drive: lerp position + lookAt target ----
-    if (driving.current && c) {
-      // Tour: quỹ đạo ellipse quanh tâm lab — flyover chậm, không stop, không zoom.
-      if (s.tourActive) {
-        const a = tourAngle.current + (t - tourStartT.current) * ORBIT_SPEED;
-        goal.current.set(
-          TOUR_CENTER.x + Math.sin(a) * TOUR_RX,
-          TOUR_H + Math.sin(t * 0.16) * 0.4,
-          TOUR_CENTER.z + Math.cos(a) * TOUR_RZ,
-        );
-        goalTgt.current.copy(TOUR_CENTER);
-        goalTgt.current.y += Math.sin(t * 0.35) * 0.15;
-      }
+    if (driving.current) {
       const k = 1 - Math.exp(-dt * LERP_K);
       cur.current.lerp(goal.current, k);
       curTgt.current.lerp(goalTgt.current, k);
       c.setLookAt(cur.current.x, cur.current.y, cur.current.z, curTgt.current.x, curTgt.current.y, curTgt.current.z, false);
-      // Glide xong → thả lái cho user (tour thì lái liên tục vì orbit drift).
-      if (!s.tourActive && !amrFocused && cur.current.distanceTo(goal.current) < 0.04) driving.current = false;
+      if (!amrChasing.current && cur.current.distanceTo(goal.current) < 0.03) {
+        driving.current = false;
+      }
     }
 
-    // ---- bonk shake ----
+    // Rung nhẹ khi gõ đầu / nổ mạch
     if (s.shakeNonce !== lastShake.current) {
       lastShake.current = s.shakeNonce;
       shakeStart.current = t;
@@ -169,11 +131,11 @@ export function CameraRig() {
     <CameraControls
       ref={controls}
       makeDefault
-      minDistance={2.2}
-      maxDistance={20}
-      maxPolarAngle={Math.PI / 2.05}
-      smoothTime={0.5}
-      draggingSmoothTime={0.12}
+      minDistance={2.0}
+      maxDistance={24}
+      maxPolarAngle={Math.PI / 2.04}
+      smoothTime={0.25}
+      draggingSmoothTime={0.1}
     />
   );
 }

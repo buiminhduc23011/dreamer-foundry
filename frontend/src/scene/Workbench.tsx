@@ -65,18 +65,19 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
     if (ringMat.current) ringMat.current.opacity = Math.min(1, 0.5 * boost * flicker);
     if (glowLight.current) glowLight.current.intensity = 2.5 * boost * flicker + boomFlash.current * 30;
     boomFlash.current *= 0.85;
-    // bonk jolts the model + floating hover sine giữ cho ghost project 'còn thở'
+    // bonk jolts the model trên mặt bệ pedestal (y = 0.31)
     if (modelGroup.current) {
       const dt = t - bonkT.current;
       if (dt >= 0 && dt < 0.5) {
         const k = (1 - dt / 0.5) * 0.06;
         modelGroup.current.position.x = Math.sin(t * 90) * k;
+        modelGroup.current.position.y = 0.31 + Math.abs(Math.sin(t * 65)) * k * 0.45;
         modelGroup.current.rotation.z = Math.sin(t * 70) * k * 0.5;
       } else {
         modelGroup.current.position.x = 0;
+        modelGroup.current.position.y = 0.31 + Math.sin(t * 0.85 + hoverPhase) * 0.006;
         modelGroup.current.rotation.z = 0;
       }
-      modelGroup.current.position.y = Math.sin(t * 0.85 + hoverPhase) * 0.045;
     }
     if (dustSparkle.current) dustSparkle.current.rotation.y = t * 0.05;
   });
@@ -144,7 +145,7 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
 
       {/* floating holographic tag — hides while its drawer is open */}
       {!selected && (
-      <Html position={[0, 2.6, 0]} center distanceFactor={8} className="holo-tag">
+      <Html position={[0, 2.82, 0]} center distanceFactor={8} className="holo-tag">
         <div
           onClick={() => select(project.id)}
           className={`cursor-pointer select-none border px-3 py-1.5 font-mono text-[10px] backdrop-blur-sm transition-all ${

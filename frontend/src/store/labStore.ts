@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { connectLab, type LabClient } from '../api/labApi';
+import { labAudio } from '../audio/labAudio';
 import type {
   BadIdea,
   ConnectionMode,
@@ -53,9 +54,11 @@ interface LabStore {
   /** Global FX — camera shake on bonk, screen flash on boom. */
   shakeNonce: number;
   flashNonce: number;
+  homeNonce: number;
 
   init: () => void;
   select: (id: string | null) => void;
+  resetHome: () => void;
   incense: (id: string) => void;
   bonk: (id: string) => void;
   cleanDust: (id: string) => void;
@@ -103,6 +106,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
   fx: {},
   shakeNonce: 0,
   flashNonce: 0,
+  homeNonce: 0,
 
   init: () => {
     if (get().started) return;
@@ -142,17 +146,29 @@ export const useLabStore = create<LabStore>((set, get) => ({
           if (evt.type === 'bonk') shakeNonce++;
           if (evt.type === 'boom' || evt.type === 'boom-all') flashNonce++;
           if (evt.type === 'boom-all') shakeNonce++;
+          if (evt.type === 'incense') labAudio.playLabAction('incense');
+          else if (evt.type === 'bonk') labAudio.playLabAction('bonk');
+          else if (evt.type === 'clean-dust' || evt.type === 'clean-all') labAudio.playLabAction('dust');
+          else if (evt.type === 'boom' || evt.type === 'boom-all') labAudio.playLabAction('boom');
+          else if (evt.type === 'power') labAudio.playLabAction('brownout');
           return { feed: [evt, ...s.feed].slice(0, MAX_FEED), fx, shakeNonce, flashNonce };
         }),
     }).then((client) => set({ client }));
   },
 
   select: (id) => {
-    set({ selectedId: id });
+    const prev = get().selectedId;
+    if (id === null && prev === null) return;
+    set((s) => ({ selectedId: id, homeNonce: id === null ? s.homeNonce + 1 : s.homeNonce }));
+    labAudio.playHudClick(id ? 640 : 420);
     get().recordActivity();
   },
 
   incense: (id) => void get().client?.incense(id),
+  resetHome: () => {
+    set((s) => ({ selectedId: null, homeNonce: s.homeNonce + 1 }));
+    labAudio.playHudClick(420);
+  },
   bonk: (id) => void get().client?.bonk(id),
   cleanDust: (id) => void get().client?.cleanDust(id),
   boom: (id) => void get().client?.boom(id),
@@ -178,7 +194,11 @@ export const useLabStore = create<LabStore>((set, get) => ({
   },
 
   togglePanic: () => {
-    set((s) => ({ panicMode: !s.panicMode }));
+    set((s) => {
+      const next = !s.panicMode;
+      labAudio.setPanicMute(next);
+      return { panicMode: next };
+    });
     get().recordActivity();
   },
 

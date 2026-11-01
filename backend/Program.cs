@@ -27,8 +27,15 @@ builder.Services.AddEndpointsApiExplorer();
 var app = builder.Build();
 app.UseCors("frontend");
 
+var staticFileProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+staticFileProvider.Mappings[".glb"] = "model/gltf-binary";
+staticFileProvider.Mappings[".gltf"] = "model/gltf+json";
+
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = staticFileProvider
+});
 
 app.MapHub<LabHub>("/hubs/lab");
 

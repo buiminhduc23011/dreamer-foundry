@@ -9,7 +9,6 @@ import { ChatWidget } from './hud/ChatWidget';
 import { PanicOverlay } from './hud/PanicOverlay';
 import { SecretAdmin } from './hud/SecretAdmin';
 import { SerialMonitor } from './hud/SerialMonitor';
-import { SpecCard, TourBadge } from './hud/SpecCard';
 import { useLabStore } from './store/labStore';
 
 /** brief white-violet flash across the HUD when a MOSFET gives its life */
@@ -40,8 +39,6 @@ export default function App() {
     <div className={`crt relative h-full w-full ${sagging || brownout ? 'voltage-sag' : ''}`}>
       <LabScene />
       <TopBar />
-      <TourBadge />
-      <SpecCard />
       <ExcuseConsole />
       <SerialMonitor />
       <InspectorDrawer />

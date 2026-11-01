@@ -18,13 +18,14 @@ export function NavDock() {
   const projects = useLabStore((s) => s.projects);
   const selectedId = useLabStore((s) => s.selectedId);
   const select = useLabStore((s) => s.select);
+  const resetHome = useLabStore((s) => s.resetHome);
 
   if (projects.length === 0) return null;
 
   return (
     <nav className="pointer-events-auto fixed bottom-3 left-1/2 z-40 flex -translate-x-1/2 gap-1.5">
       <button
-        onClick={() => select(null)}
+        onClick={resetHome}
         className={`hud-panel px-3 py-2 font-mono text-[9px] transition-colors ${!selectedId ? 'bg-holo/15 text-holo' : 'text-holo/60 hover:text-holo'}`}
       >
         <AiOutlineHome className="inline-block align-[-2px] text-[12px]" /> TỔNG QUAN

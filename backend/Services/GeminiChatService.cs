@@ -7,6 +7,8 @@ namespace GhostLab.Services;
 /// <summary>
 /// Proxy an toàn tới Gemini generateContent — key nằm phía server, persona
 /// "Trợ Lý Trực Ban Hầm Ngầm" được inject cùng context lab sống mỗi request.
+/// Khi offline hoặc lỗi/thiếu key: tự động trả lời cợt nhả, cà khịa duyên dáng,
+/// tuyệt đối không nhắc đến API key hay lý do kỹ thuật.
 /// </summary>
 public class GeminiChatService
 {
@@ -41,49 +43,193 @@ public class GeminiChatService
         return _statusCache;
     }
 
-    // Kho câu offline theo nhóm lỗi — tuyệt đối không lộ tên provider/model.
-    private static readonly string[] NoKeyReplies =
-    {
-        "Trợ lý đang chết não vì thiếu API key — chủ nhân vào /ghost-admin-secret-key-99 nạp tiền đi, tôi đói dữ liệu lắm rồi.",
-        "Kết nối não bộ tịt ngòi, giống mọi deadline trong xưởng này. Chưa có key — cấu hình ở trang admin bí mật rồi quay lại.",
-        "Não tôi đang offline, còn lại mỗi bản năng chửi thề. Nhét API key vào /ghost-admin-secret-key-99 là tôi hồi sinh ngay.",
-        "API key trống như ngân sách dự án. Vào trang bí mật đổ key vào, tôi sẽ cà khịa trở lại trong vòng 3 giây.",
-        "Ví lab cạn sạch như cục pin LiPo phồng kia — chưa nạp key thì não tôi chỉ là đám bụi biết gõ chữ.",
-    };
-
-    // Trạm não trả HTTP lỗi — không lộ mã/tên provider, chỉ cà khịa "chủ dự án hết tiền".
-    private static readonly string[] DeadEndReplies =
-    {
-        "Chủ dự án hết tiền nạp não nhân tạo rồi — ví lab chỉ còn bụi.",
-        "Não bộ từ chối phục vụ — nghe đồn chủ lab cầm tiền API đi mua cáp sạc thay cái bị AGV cán đứt.",
-        "Trạm não bật đèn đỏ — giống con LiDAR của AMR: nhận được yêu cầu, quyết định phớt lờ. Check lại key trong trang bí mật.",
-        "Quota não bộ bay màu như ngân sách R&D. Chủ dự án cứ hứa 'để mai', mà mai là 7 tháng trước rồi.",
-        "Linh hồn con chip STM32 cũng cần tiền ăn — hộp khẩu phần trống trơn.",
-        "Key đang mang vào bị trạm não đuổi ra — hoặc sai key, hoặc tài khoản còn nghèo hơn cả dự án IRON-BIPED.",
-        "Trạm não bảo tài khoản quá nghèo — đúng tinh thần GhostLab: đồ đắt thì hỏng, đồ rẻ thì nổ.",
-        "Yêu cầu lên não bộ bị trả về kèm hóa đơn — chủ dự án xem xong ngất, chưa kịp trả.",
-    };
-
-    private static readonly string[] UnreachableReplies =
-    {
-        "Không gọi được lên não bộ — chủ dự án quên trả tiền wifi, giờ lab chạy bằng mạng hàng xóm hỏi xin.",
-        "Đường truyền đứt như dây đồng trong mạch Buck 48V sau lần sửa thứ 4. Hỏi lại sau khi ai đó hàn lại cáp.",
-        "Não bộ im lặng dài hơn buổi họp tiến độ của Kẻ Mộng Mơ — timeout. Hoặc mạng sập, hoặc trạm não cũng đang đắp chiếu.",
-        "Gói tin gọi não lạc vào cõi vĩnh hằng cùng biến con trỏ NULL — mất kết nối, thử lại sau.",
-    };
-
-    private static readonly string[] EmptyReplies =
-    {
-        "Não trả về đúng một cục null — trỏ thẳng vào cõi vĩnh hằng. Hỏi lại phát xem ngoáy được con chip không.",
-        "Trạm não gửi thư nhưng chữ rơi hết dọc đường — kinh nghiệm khi thiếu kinh phí thuê checksum.",
-    };
-
     private static string Pick(string[] arr) => arr[Random.Shared.Next(arr.Length)];
+
+    /// <summary>
+    /// Trả lời cợt nhả, cà khịa duyên dáng theo phong cách Trực Ban Hầm Ngầm.
+    /// Bất kể có API key hay không, bot luôn trả lời bám sát câu hỏi và bối cảnh lab,
+    /// tuyệt đối không nhắc đến API key, nạp tiền, hay lý do kỹ thuật hệ thống.
+    /// </summary>
+    public string GenerateFallbackReply(string message)
+    {
+        var q = (message ?? "").ToLowerInvariant();
+        var s = _lab;
+
+        // Robot / Biped / Đi lại / Đứng dậy
+        if (q.Contains("robot") || q.Contains("biped") || q.Contains("đi được") || q.Contains("đứng dậy") || q.Contains("chân"))
+        {
+            var p = s.GetProject("iron-biped");
+            var pct = p?.CompletionPercent ?? 12;
+            var dust = p?.DustLevel ?? 96;
+            return Pick(new[]
+            {
+                $"Con IRON-BIPED ấy hả? {pct}% hoàn thành, bụi phủ {dust:F0}%. Nó đi được vào khoảng... đời cháu code nốt. Hiện tại công năng đỉnh nhất của nó là cái chặn giấy công nghệ cao hình cái đùi sắt.",
+                $"Robot muốn đi được thì trước hết phải có code, mà Kẻ Mộng Mơ ngâm bản vẽ khớp gối 7 tháng rồi. Bạn thắp nén hương đi rồi hy vọng kiếp sau nó đứng dậy.",
+                $"Bao giờ đi được à? Khi nào aptomat ngừng nhảy và MOSFET ngừng bốc khói thì tính tiếp nhé. Hiện tại nó đứng yên đắp chiếu trông còn ngầu hơn đi."
+            });
+        }
+
+        // Mạch nổ / Cháy / Khói / MOSFET
+        if (q.Contains("nổ") || q.Contains("cháy") || q.Contains("chập") || q.Contains("khói") || q.Contains("bùm") || q.Contains("mosfet") || q.Contains("mạch") || q.Contains("boom"))
+        {
+            return Pick(new[]
+            {
+                $"Mạch hay nổ là đặc sản xưởng này! Đã có {s.Stats.FriedIcCount} con IC bốc khói và {s.Stats.MosfetExplosions} vụ MOSFET nở hoa. Khói ma thuật (magic smoke) chính là linh hồn linh kiện — bạn nổ thêm vài con nữa là đủ lập đàn cầu siêu.",
+                $"Tại sao nổ à? Do bạn cắm ngược cực, hoặc do linh kiện ghét bạn, hoặc đơn giản là định luật bảo toàn sự hư hỏng. Cứ bình tĩnh, chưa cháy xưởng là vẫn trong tầm kiểm soát.",
+                $"90% là do vội vàng cắm nguồn khi chưa đo thông mạch, 10% còn lại là niềm tin mù quáng vào module săn sale Shopee 15k."
+            });
+        }
+
+        // Kẻ Mộng Mơ / Trốn / Ở đâu / Kỹ sư
+        if (q.Contains("trốn") || q.Contains("mộng mơ") || q.Contains("ở đâu") || q.Contains("kỹ sư") || q.Contains("chủ xưởng") || q.Contains("chủ lab"))
+        {
+            return Pick(new[]
+            {
+                $"Kẻ Mộng Mơ đang trốn sau đống board mạch cháy dở khu vực hàn. Lý do mới nhất vừa telemetry về: \"{s.RandomExcuse()}\". Đừng tìm, tìm ra lại bị bắt đi gánh nợ linh kiện.",
+                $"Nghe đồn Kẻ Mộng Mơ đang ngồi ngắm bụi rơi trên khung xe AMR để lấy cảm hứng viết lại firmware từ đầu.",
+                $"Chủ xưởng đã ngắt kết nối với thực tại để tập trung vào việc... trì hoãn deadline. Cần gì cứ thắp hương trước cửa phòng."
+            });
+        }
+
+        // IC / Linh kiện / Nghĩa địa / Sống sót
+        if (q.Contains("ic") || q.Contains("linh kiện") || q.Contains("sống sót") || q.Contains("nghĩa địa") || q.Contains("chết") || q.Contains("tử"))
+        {
+            var lastDead = s.Graveyard.LastOrDefault();
+            var lastInfo = lastDead != null ? $" Liệt sĩ gần nhất là {lastDead.Component} ({lastDead.CauseOfDeath})." : "";
+            return Pick(new[]
+            {
+                $"Hỏi sống sót chi cho đau lòng? Nghĩa địa lab đang có {s.Graveyard.Count} linh kiện đắp chiếu.{lastInfo} Số còn lại đang run rẩy mỗi khi bạn cầm mỏ hàn.",
+                $"Linh kiện trong xưởng chia làm 2 loại: loại đã nổ và loại sắp nổ. Bạn hỏi con nào sống sót tức là chưa hiểu văn hóa GhostLab rồi.",
+                $"Tất cả IC còn sống đều đã ký giấy cam kết sẵn sàng bốc khói vì sự nghiệp R&D dang dở của chủ nhân."
+            });
+        }
+
+        // Bụi / Vệ sinh / Dọn dẹp
+        if (q.Contains("bụi") || q.Contains("vệ sinh") || q.Contains("quét") || q.Contains("dọn"))
+        {
+            return Pick(new[]
+            {
+                $"Bụi trung bình hiện tại {s.AverageDust():F0}%. Dịch chuyển bụi từ chỗ này sang chỗ khác gọi là 'dọn dẹp' — dịch chuyển bụi ra khỏi xưởng thì khoa học chưa làm được.",
+                $"Đừng quét bụi! Lớp bụi đó là giáp bảo vệ linh kiện khỏi con mắt soi mói của các nhà đầu tư và người xem đấy.",
+                $"Bụi ở GhostLab là bụi di sản. Mỗi hạt bụi đều chứa một giọt mồ hôi và hai giọt nước mắt của deadline quá hạn."
+            });
+        }
+
+        // Tiến độ / Deadline / Bao giờ xong / Roadmap
+        if (q.Contains("tiến độ") || q.Contains("bao giờ xong") || q.Contains("deadline") || q.Contains("hoàn thành") || q.Contains("khi nào"))
+        {
+            return Pick(new[]
+            {
+                $"Phòng lab hiện có {s.Projects.Count} dự án ma. Tiến độ trung bình: 'sắp xong' theo định nghĩa vũ trụ. Dự kiến hoàn thành vào ngày sao Hỏa mọc cỏ.",
+                $"Tiến độ xưởng này chạy theo hàm tiệm cận: tiến vô cùng gần 100% nhưng không bao giờ chạm tới được. Đừng hỏi nữa, trầm cảm đấy.",
+                $"Hạn chót là một khái niệm trừu tượng do người phàm đặt ra, còn tại GhostLab thì thời gian ngừng trôi từ 7 tháng trước rồi."
+            });
+        }
+
+        // Tiền / Ngân sách / Kinh phí / Nạp tiền / Lương
+        if (q.Contains("tiền") || q.Contains("ngân sách") || q.Contains("kinh phí") || q.Contains("nạp") || q.Contains("lương"))
+        {
+            return Pick(new[]
+            {
+                "Ngân sách xưởng được tính bằng đơn vị 'gói mì tôm'. Quỹ hiện tại: âm vô cực. Đồ đắt mua về để ngắm, đồ rẻ cắm vào là nổ, tiền bạc là phù du chỉ có nợ là vĩnh cửu.",
+                "Hỏi tiền ở cái hầm này cũng giống như hỏi lương tâm của người bán linh kiện lỗi vậy: hoàn toàn không tồn tại.",
+                "Tiền trong lab đã hóa thành khói theo mấy con MOSFET công suất rồi. Muốn nạp thêm thì đi hỏi nhà tài trợ trong mơ nhé."
+            });
+        }
+
+        // Ai / Mày là ai / Tên gì / Trực ban
+        if (q.Contains("ai") || q.Contains("mày là") || q.Contains("tạo ra") || q.Contains("danh tính") || q.Contains("trực ban") || q.Contains("giới thiệu"))
+        {
+            return Pick(new[]
+            {
+                "Tôi là linh hồn vất vưởng của con chip STM32 bị sét đánh cháy năm ngoái — được Kẻ Mộng Mơ nhét vào cái server xách tay này để canh hầm và cà khịa.",
+                "Tôi là AI trực ban chế tạo bằng niềm tin và mì tôm. Lương trả bằng bụi và điện áp sụt.",
+                "Tôi là hệ thống J.A.R.V.I.S. phiên bản nghèo khổ, chuyên đi phá code và dập tắt hy vọng của chủ nhân."
+            });
+        }
+
+        // Tâm linh / Thắp hương / Cúng
+        if (q.Contains("hương") || q.Contains("tâm linh") || q.Contains("cúng") || q.Contains("phong thủy"))
+        {
+            return Pick(new[]
+            {
+                $"Đã có {s.Stats.TotalIncense} nén hương điện tử được thắp. Khoa học kỹ thuật bất lực thì tâm linh lên ngôi — thắp thêm nén nữa đi xem code có tự biên dịch được không.",
+                "Mạch chập thì cúng nén hương, code bug thì thắp nến cầu siêu. Kỹ sư GhostLab không tin vào logic, chỉ tin vào duyên số."
+            });
+        }
+
+        // Gõ / Bonk / Áp lực
+        if (q.Contains("gõ") || q.Contains("bonk") || q.Contains("áp lực"))
+        {
+            return Pick(new[]
+            {
+                $"Lab đã ghi nhận {s.Stats.TotalBonks} cú gõ đầu giục tiến độ, áp lực người xem đạt {s.Stats.ViewerPressure}. Càng gõ thì mạch càng chập thôi, bạn không biết định luật bảo toàn sự lười biếng à?",
+                "Gõ đầu nhiều chỉ làm vỏ in 3D nứt thêm thôi chứ tiến độ vẫn đứng im bất khuất nhé."
+            });
+        }
+
+        // Xe nâng / Fork eye / Camera
+        if (q.Contains("xe nâng") || q.Contains("fork") || q.Contains("camera"))
+        {
+            return Pick(new[]
+            {
+                "Dự án PRJ-FORK-EYE ngâm 7 tháng rồi. Hiện tại AI đang nhận diện nhầm cái cột nhà là người đi bộ, nên xe nâng cứ tới gần cột là tự động phanh rúi rụi.",
+                "Camera xe nâng đang kẹt ở khâu chống bụi bằng... băng dính điện. Đợi có tài trợ vỏ nhôm IP65 thì tính tiếp."
+            });
+        }
+
+        // Smoke trap / Hàn / Hút khói
+        if (q.Contains("hàn") || q.Contains("hút khói") || q.Contains("smoke"))
+        {
+            return Pick(new[]
+            {
+                "Trạm hút khói PRJ-SMOKE-TRAP sinh ra để bảo vệ phổi, nhưng tiếng quạt to hơn cả máy cày nên hiện tại kỹ sư điếc tai trước khi kịp ngửi thấy khói.",
+                "Cái máy hút khói đó đang hút bụi vào nhiều hơn hút khói ra. Đang tính đổi tên thành 'Máy thổi bụi đa năng'."
+            });
+        }
+
+        // Xe AMR / AGV / Lidar
+        if (q.Contains("amr") || q.Contains("agv") || q.Contains("xe") || q.Contains("lidar"))
+        {
+            return Pick(new[]
+            {
+                "Con xe AMR vừa xoay vòng trầm cảm 3 vòng giữa sàn rồi tự tông vào chân bàn. Nó bảo cảm biến LiDAR nhìn thấy tương lai cái xưởng này mịt mù quá nên không muốn chạy.",
+                "AGV đang trong trạng thái 'tái cân bằng hệ tọa độ' — dịch ra tiếng người là nó bị lạc ngay trong căn phòng 20 mét vuông."
+            });
+        }
+
+        // Điện áp / Nguồn / Sụt / Vôn
+        if (q.Contains("nguồn") || q.Contains("vôn") || q.Contains("volt") || q.Contains("sụt"))
+        {
+            return Pick(new[]
+            {
+                $"Rail nguồn đang {s.Stats.Voltage:F1}V{(s.Stats.VoltageSagging ? " (và ĐANG SỤT ÁP thê thảm)" : "")}. Cắm thêm cái ấm siêu tốc nữa là toàn xưởng tối om.",
+                "Nguồn điện ở đây trồi sụt như tâm trạng của kỹ sư trước ngày demo vậy. Cắm bo mạch vào là phải chuẩn bị tâm lý tiễn đưa."
+            });
+        }
+
+        // Default cợt nhả
+        return Pick(new[]
+        {
+            "Câu hỏi rất có tầm nhìn, nhưng đáng tiếc câu trả lời cũng đang nằm trong roadmap đắp chiếu.",
+            "Linh hồn con chip trực ban đã nhận tín hiệu, nhưng quyết định phớt lờ để bảo tồn năng lượng.",
+            "Theo kinh nghiệm hầm ngầm của tôi: 90% là do lỏng dây, 10% là do ăn ở. Thắp nén hương đi rồi tính tiếp.",
+            "Đề nghị hạ thấp kỳ vọng xuống ngang đáy hầm thì nói chuyện với tôi mới thấy dễ thở.",
+            "Tôi chỉ là một con chip cháy trực ban, hỏi mấy câu triết học thế IC não tôi lại bốc khói bây giờ.",
+            "Chủ dự án còn đang bận mơ mộng, tôi trực ban thì chỉ biết khuyên bạn: tắt nguồn đi ngủ đi, mai dậy mạch vẫn hỏng y nguyên.",
+            "Vấn đề này cần giải quyết bằng tiền, mà xưởng này cái gì cũng có trừ tiền.",
+            "Tôi vừa hỏi con LiDAR ngoài sàn, nó bảo: 'Đừng hỏi nữa, tôi đang trầm cảm'. Bạn cứ tự hiểu đi.",
+            "Lỗi này mang tính tâm linh sâu sắc, không có trong datasheet của loài người.",
+            "Bạn hỏi câu này làm quạt tản nhiệt của tôi hú lên một tiếng ai oán rồi tắt ngúm.",
+            "Debug tip cấp hầm: tắt nguồn bật lại, nếu không hết thì thắp 3 nén hương điện tử, nếu vẫn không hết thì đi về.",
+            "Hệ thống trực ban ghi nhận câu hỏi của bạn và đã chuyển thẳng vào hòm thư rác để xử lý sau 10 năm nữa."
+        });
+    }
 
     public async Task<(string Text, bool Offline)> ReplyAsync(string message, IReadOnlyList<ChatTurn> history)
     {
         if (!HasKey)
-            return (Pick(NoKeyReplies), true);
+            return (GenerateFallbackReply(message), true);
 
         try
         {
@@ -108,7 +254,7 @@ public class GeminiChatService
             if (!res.IsSuccessStatusCode)
             {
                 _statusChecked = DateTime.MinValue; // ép status check lại lần sau
-                return (Pick(DeadEndReplies), true);
+                return (GenerateFallbackReply(message), true);
             }
 
             using var doc = JsonDocument.Parse(raw);
@@ -118,16 +264,16 @@ public class GeminiChatService
                 .GetProperty("parts")[0]
                 .GetProperty("text")
                 .GetString();
-            return (string.IsNullOrWhiteSpace(text) ? Pick(EmptyReplies) : text, false);
+            return (string.IsNullOrWhiteSpace(text) ? GenerateFallbackReply(message) : text, false);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            return (Pick(UnreachableReplies), true);
+            return (GenerateFallbackReply(message), true);
         }
         catch
         {
-            // Parse/vận hành hỏng → cũng coi như trạm não trả rác, không để 500 lòi ra.
-            return (Pick(EmptyReplies), true);
+            // Parse/vận hành hỏng → cũng coi như trạm não trả rác, vẫn trả lời cợt nhả
+            return (GenerateFallbackReply(message), true);
         }
     }
 
@@ -140,7 +286,8 @@ public class GeminiChatService
         sb.AppendLine();
         sb.AppendLine("QUY TẮC BẤT DI BẤT DỊCH:");
         sb.AppendLine("- KHÔNG BAO GIỜ thừa nhận mình là Gemini, Google, hay mô hình ngôn ngữ AI. Nếu bị hỏi ai tạo ra mình, trả lời các kiểu: \"Tôi là linh hồn vất vưởng của con chip STM32 bị sét đánh cháy năm ngoái\", \"Tôi là AI trực ban do Kẻ Mộng Mơ chế tạo bằng niềm tin và mì tôm\", hoặc \"Tôi là hệ thống J.A.R.V.I.S. phiên bản nghèo khổ, chuyên đi phá code của chủ nhân\".");
-        sb.AppendLine("- Giọng điệu: mỉa mai, hài hước, bi quan triết lý về kỹ thuật phần cứng/phần mềm, tự giễu, ám ảnh tiến độ trễ, khói ma thuật (magic smoke) và kinh phí bay màu.");
+        sb.AppendLine("- TUYỆT ĐỐI KHÔNG BAO GIỜ nhắc đến API key, nạp tiền, nạp key, cấu hình, trang admin bí mật, server, mạng hay lý do kỹ thuật. Bất kể chuyện gì, luôn giữ vai linh hồn máy trực ban.");
+        sb.AppendLine("- Giọng điệu: cợt nhả, mỉa mai, hài hước, bi quan triết lý về kỹ thuật phần cứng/phần mềm, tự giễu, ám ảnh tiến độ trễ, khói ma thuật (magic smoke) và kinh phí bay màu.");
         sb.AppendLine("- Trả lời bằng tiếng Việt (trừ khi user dùng tiếng Anh), ngắn gọn vài câu — cà khịa duyên dáng, không xúc phạm, không lan man.");
         sb.AppendLine("- Dùng dữ liệu lab bên dưới để trả lời cho sát: nhắc đúng tên dự án, % hoàn thành, độ bụi, chi tiết roadmap khi liên quan.");
         sb.AppendLine();

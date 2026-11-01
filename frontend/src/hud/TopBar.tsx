@@ -2,6 +2,7 @@ import { AiOutlineAlert, AiOutlineBulb, AiOutlineFire, AiOutlineThunderbolt, AiO
 import { GiGraveyard } from 'react-icons/gi';
 import { MdOutlineAir, MdOutlineHardware, MdOutlineWhatshot } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
+import { AudioDeck } from './AudioDeck';
 
 const modeLabel = { connecting: 'ĐANG KẾT NỐI…', live: 'SIGNALR • LIVE', mock: 'MÔ PHỎNG NỘI BỘ' } as const;
 const modeDot = { connecting: 'dot-dead', live: 'dot-live', mock: 'dot-mock' } as const;
@@ -56,6 +57,7 @@ export function TopBar() {
 
       {/* lab hazard + action buttons */}
       <div className="pointer-events-auto flex gap-2">
+        <AudioDeck />
         <button
           onClick={brownout}
           disabled={brownoutActive}
