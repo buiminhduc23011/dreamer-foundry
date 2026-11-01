@@ -1,14 +1,18 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import type { IconType } from 'react-icons';
+import { AiFillCaretUp, AiOutlineBulb, AiOutlineClose, AiOutlineCode, AiOutlineComment, AiOutlineFire, AiOutlineOrderedList } from 'react-icons/ai';
+import { GiDeathSkull } from 'react-icons/gi';
+import { MdOutlineAir, MdOutlineBuild, MdOutlineHardware, MdOutlineMemory, MdOutlineWhatshot } from 'react-icons/md';
 import { selectProject, useLabStore } from '../store/labStore';
 import type { RoadmapItem, RoadmapStatus } from '../types';
 
 type LayerKey = 'hardware' | 'firmware' | 'software';
 type MainTab = 'roadmap' | 'roasts' | 'ideas';
 
-const LAYERS: { key: LayerKey; label: string }[] = [
-  { key: 'hardware', label: '🔧 HARDWARE' },
-  { key: 'firmware', label: '💾 FIRMWARE' },
-  { key: 'software', label: '🖥️ SOFTWARE' },
+const LAYERS: { key: LayerKey; label: string; icon: IconType }[] = [
+  { key: 'hardware', label: 'HARDWARE', icon: MdOutlineBuild },
+  { key: 'firmware', label: 'FIRMWARE', icon: MdOutlineMemory },
+  { key: 'software', label: 'SOFTWARE', icon: AiOutlineCode },
 ];
 
 const statusStyle: Record<RoadmapStatus, { tag: string; cls: string }> = {
@@ -48,7 +52,7 @@ function RoadmapTab({ project }: { project: NonNullable<ReturnType<typeof select
               layer === t.key ? 'border-holo bg-holo/15 text-holo' : 'border-holo/20 text-holo/50 hover:border-holo/50'
             }`}
           >
-            {t.label}
+            <t.icon className="mr-0.5 inline-block align-[-2px] text-[10px]" />{t.label}
           </button>
         ))}
       </div>
@@ -147,7 +151,7 @@ function IdeasTab() {
         onClick={() => void setIdeasOpen(true)}
         className="mb-3 w-full border border-amber-glow/40 px-2 py-1.5 font-mono text-[9px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/15"
       >
-        + XÚI DẠI Ý TƯỞNG MỚI →
+        <AiOutlineBulb className="mr-1 inline-block align-[-2px]" />XÚI DẠI Ý TƯỞNG MỚI →
       </button>
       <div className="space-y-2">
         {[...ideas].sort((a, b) => b.upvotes - a.upvotes).map((i, rank) => (
@@ -157,12 +161,12 @@ function IdeasTab() {
               className="flex shrink-0 flex-col items-center border border-holo/30 px-1.5 py-1 font-mono text-[9px] text-holo transition-colors hover:border-amber-glow hover:text-amber-glow"
               title="Upvote ý tưởng tồi này"
             >
-              <span>▲</span>
+              <span><AiFillCaretUp /></span>
               <span className="font-bold">{i.upvotes}</span>
             </button>
             <div className="min-w-0 flex-1">
               <div className="font-mono text-[9px] leading-relaxed text-holo/85">
-                {rank === 0 && i.upvotes > 0 && <span className="mr-1 text-danger">☠</span>}
+                {rank === 0 && i.upvotes > 0 && <span className="mr-1 text-danger"><GiDeathSkull className="inline-block align-[-2px]" /></span>}
                 {i.title}
               </div>
               <div className="mt-1 flex justify-between font-mono text-[7px] text-holo/40">
@@ -181,10 +185,10 @@ function IdeasTab() {
 }
 
 /* ---------------- Deep Inspection Drawer ---------------- */
-const MAIN_TABS: { key: MainTab; label: string }[] = [
-  { key: 'roadmap', label: '📋 ROADMAP' },
-  { key: 'roasts', label: '💬 CÀ KHỊA' },
-  { key: 'ideas', label: '💡 XÚI DẠI' },
+const MAIN_TABS: { key: MainTab; label: string; icon: IconType }[] = [
+  { key: 'roadmap', label: 'ROADMAP', icon: AiOutlineOrderedList },
+  { key: 'roasts', label: 'CÀ KHỊA', icon: AiOutlineComment },
+  { key: 'ideas', label: 'XÚI DẠI', icon: AiOutlineBulb },
 ];
 
 export function InspectorDrawer() {
@@ -208,7 +212,7 @@ export function InspectorDrawer() {
             <div className="font-mono text-[10px] text-holo/70">{project.name}</div>
           </div>
           <button onClick={() => select(null)} className="border border-holo/40 px-2 py-0.5 font-mono text-[10px] text-holo/70 hover:bg-holo/10">
-            ✕
+            <AiOutlineClose className="inline-block" />
           </button>
         </div>
         <p className="mt-2 font-mono text-[9px] italic leading-relaxed text-holo/60">"{project.tagline}"</p>
@@ -226,7 +230,7 @@ export function InspectorDrawer() {
         </div>
         <div className="bg-void/80 p-2 text-center">
           <div className="text-holo/50">CỘNG ĐỒNG</div>
-          <div className="text-sm text-holo">🕯{project.incenseCount} 🔨{project.bonkCount}</div>
+          <div className="text-sm text-holo"><AiOutlineFire className="inline-block align-[-2px] text-[12px]" />{project.incenseCount} <MdOutlineHardware className="inline-block align-[-2px] text-[12px]" />{project.bonkCount}</div>
         </div>
       </div>
 
@@ -254,7 +258,7 @@ export function InspectorDrawer() {
                 tab === t.key ? 'border-amber-glow/60 bg-amber-glow/10 text-amber-glow' : 'border-holo/20 text-holo/50 hover:border-holo/50'
               }`}
             >
-              {t.label}
+              <t.icon className="mr-0.5 inline-block align-[-2px] text-[10px]" />{t.label}
             </button>
           ))}
         </div>
@@ -267,16 +271,16 @@ export function InspectorDrawer() {
       {/* action buttons — SignalR backed */}
       <div className="mt-auto grid grid-cols-2 gap-1.5 border-t border-holo/20 p-3">
         <button onClick={() => incense(project.id)} className="hud-panel-amber border px-2 py-2 font-mono text-[9px] text-amber-incense transition-colors hover:bg-amber-glow/15">
-          �️ THẮP HƯƠNG ĐỘ TRÌ
+          <AiOutlineFire className="mr-1 inline-block align-[-2px] text-[11px]" />THẮP HƯƠNG ĐỘ TRÌ
         </button>
         <button onClick={() => bonk(project.id)} className="border border-holo/40 px-2 py-2 font-mono text-[9px] text-holo transition-colors hover:bg-holo/15">
-          � GÕ ĐẦU GIỤC TIẾN ĐỘ
+          <MdOutlineHardware className="mr-1 inline-block align-[-2px] text-[11px]" />GÕ ĐẦU GIỤC TIẾN ĐỘ
         </button>
         <button onClick={() => cleanDust(project.id)} className="border border-holo/40 px-2 py-2 font-mono text-[9px] text-holo transition-colors hover:bg-holo/15">
-          � XỊT KHÍ NÉN THỔI BỤI
+          <MdOutlineAir className="mr-1 inline-block align-[-2px] text-[11px]" />XỊT KHÍ NÉN THỔI BỤI
         </button>
         <button onClick={() => boom(project.id)} className="border border-danger/50 px-2 py-2 font-mono text-[9px] text-danger transition-colors hover:bg-danger/15">
-          💥 TEST MOSFET (NỔ)
+          <MdOutlineWhatshot className="mr-1 inline-block align-[-2px] text-[11px]" />TEST MOSFET (NỔ)
         </button>
       </div>
     </aside>

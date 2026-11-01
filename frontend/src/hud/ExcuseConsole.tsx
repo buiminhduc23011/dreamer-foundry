@@ -1,16 +1,21 @@
 import { useEffect, useRef } from 'react';
+import type { IconType } from 'react-icons';
+import { AiOutlineBulb, AiOutlineComment, AiOutlineFire, AiOutlineInfoCircle, AiOutlineThunderbolt } from 'react-icons/ai';
+import { MdOutlineAir, MdOutlineHardware, MdOutlineWhatshot } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
 
-const evtIcon: Record<string, string> = {
-  incense: '🕯️',
-  bonk: '🔨',
-  'clean-dust': '💨',
-  'clean-all': '💨',
-  boom: '💥',
-  power: '⚡',
-  'bad-idea': '💡',
-  roast: '💬',
-  system: '◈',
+const evtIcon: Record<string, IconType> = {
+  incense: AiOutlineFire,
+  bonk: MdOutlineHardware,
+  'clean-dust': MdOutlineAir,
+  'clean-all': MdOutlineAir,
+  boom: MdOutlineWhatshot,
+  'boom-all': MdOutlineWhatshot,
+  power: AiOutlineThunderbolt,
+  'bad-idea': AiOutlineBulb,
+  roast: AiOutlineComment,
+  'amr-crash': AiOutlineInfoCircle,
+  system: AiOutlineInfoCircle,
 };
 
 export function ExcuseConsole() {
@@ -51,12 +56,15 @@ export function ExcuseConsole() {
         <div className="my-2 border-t border-holo/10" />
         <div className="mb-1 font-mono text-[8px] tracking-[0.25em] text-holo/40">— LIVE EVENT FEED —</div>
 
-        {feed.slice(0, 14).map((e, i) => (
-          <div key={`${e.at}-${i}`} className="log-line mb-1.5 font-mono text-[9px] leading-relaxed text-holo/60">
-            <span className="mr-1">{evtIcon[e.type] ?? '◈'}</span>
-            {e.message}
-          </div>
-        ))}
+        {feed.slice(0, 14).map((e, i) => {
+          const Icon = evtIcon[e.type] ?? AiOutlineInfoCircle;
+          return (
+            <div key={`${e.at}-${i}`} className="log-line mb-1.5 font-mono text-[9px] leading-relaxed text-holo/60">
+              <Icon className="mr-1 inline-block align-[-2px] text-[11px] text-holo/70" />
+              {e.message}
+            </div>
+          );
+        })}
       </div>
     </aside>
   );

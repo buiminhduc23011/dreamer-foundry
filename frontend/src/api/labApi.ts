@@ -1,6 +1,9 @@
 import * as signalR from '@microsoft/signalr';
 import type {
+  AdminStatus,
   BadIdea,
+  ChatReply,
+  ChatTurn,
   ConnectionMode,
   DustyProject,
   GraveyardEntry,
@@ -39,6 +42,11 @@ export interface LabClient {
   upvoteIdea(id: string): Promise<void>;
   getRoasts(projectId: string): Promise<RoastComment[]>;
   postRoast(projectId: string, author: string, role: string, text: string): Promise<RoastComment | null>;
+  chat(message: string, history: ChatTurn[]): Promise<ChatReply>;
+  getAdminStatus(adminKey: string | null): Promise<AdminStatus>;
+  initAdmin(adminKey: string): Promise<boolean>;
+  saveGeminiKey(adminKey: string, apiKey: string, model: string): Promise<AdminStatus>;
+  boomAll(): Promise<void>;
   dispose(): void;
 }
 
@@ -134,6 +142,38 @@ async function createLiveClient(handlers: LabHandlers): Promise<LabClient> {
         return null;
       }
     },
+    // Chat cho Gemini thời gian nghĩ — timeout riêng 30s thay vì 5s mặc định.
+    chat: async (message, history) => {
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(30000),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, history }),
+        });
+        if (!res.ok) throw new Error(`chat → ${res.status}`);
+        return (await res.json()) as ChatReply;
+      } catch {
+        return { reply: 'Đường dây tới trạm não đứt gánh — chủ dự án bảo "mạng đắt thế, gửi chim bồ câu đi". Thử lại sau.', offline: true };
+      }
+    },
+    getAdminStatus: (adminKey) =>
+      fetchJson<AdminStatus>('/api/admin/status', { headers: { 'X-Admin-Key': adminKey ?? '' } }),
+    initAdmin: async (adminKey) => {
+      try {
+        await fetchJson('/api/admin/init', { method: 'POST', body: JSON.stringify({ adminKey }) });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    saveGeminiKey: (adminKey, apiKey, model) =>
+      fetchJson<AdminStatus>('/api/admin/gemini-key', {
+        method: 'POST',
+        headers: { 'X-Admin-Key': adminKey },
+        body: JSON.stringify({ apiKey, model }),
+      }),
+    boomAll: () => post('/api/hazard/boom-all'),
     dispose: () => void hub.stop(),
   };
 }
@@ -171,9 +211,9 @@ function createMockClient(handlers: LabHandlers): LabClient {
         stats.voltageSagging = false;
         emit('power', 'GHOSTLAB TELEMETRY: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc.');
       }
-    } else if (Math.random() < 0.08) {
+    } else if (Math.random() < 0.02) {
       sagging = true;
-      sagTicks = 1 + Math.floor(Math.random() * 3);
+      sagTicks = 1 + Math.floor(Math.random() * 2);
       stats.voltage = 3.1 + Math.random() * 0.4;
       stats.voltageSagging = true;
       emit('power', `⚡ SỤT NGUỒN: rail 5V còn ${stats.voltage.toFixed(1)}V. Hologram chớp tắt như đuốc sắp tàn.`);
@@ -259,6 +299,50 @@ function createMockClient(handlers: LabHandlers): LabClient {
       handlers.onBadIdeas([...ideas]);
     },
     getRoasts: async (projectId) => roasts.filter((r) => r.projectId === projectId),
+    // Mock chat — backend offline thì trợ lý dùng trí nhớ bụi để trả lời.
+    chat: async (message) => {
+      await new Promise((r) => setTimeout(r, 400 + Math.random() * 500));
+      const q = message.toLowerCase();
+      const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+      let reply: string;
+      if (/ai|mày là|tao hỏi|tạo ra|chế tạo|danh tính/.test(q)) {
+        reply = pick([
+          'Tôi là linh hồn vất vưởng của con chip STM32 bị sét đánh cháy năm ngoái — được Kẻ Mộng Mơ nhét vào cái server xách tay này để canh lab.',
+          'Tôi là AI trực ban do Kẻ Mộng Mơ chế tạo bằng niềm tin và mì tôm. Lương trả bằng bụi.',
+          'Tôi là hệ thống J.A.R.V.I.S. phiên bản nghèo khổ, chuyên đi phá code của chủ nhân thay vì cứu thế giới.',
+        ]);
+      } else if (/robot|biped|đi được|đứng dậy/.test(q)) {
+        reply = 'Con IRON-BIPED ấy hả? 12% hoàn thành, bụi 96% — nó đi được vào khoảng... đời cháu code nốt. Hiện tại nó là cái chặn giấy công nghệ cao hình cái đùi.';
+      } else if (/nổ|cháy|bùm|khói|boom/.test(q)) {
+        reply = `Mạch hay nổ là đặc sản GhostLab. Đã có ${stats.friedIcCount} con IC bốc khói và ${stats.mosfetExplosions} vụ MOSFET thả khói ma thuật. Khói đó chính là linh hồn linh kiện — mình đang thả nó ra vĩnh viễn.`;
+      } else if (/bụi|vệ sinh|quét dọn/.test(q)) {
+        reply = `Bụi trung bình hiện tại ${stats.averageDust}%. Dịch chuyển bụi từ chỗ này sang chỗ khác gọi là "dọn dẹp" — dịch chuyển bụi ra khỏi nhà thì không ai biết cách.`;
+      } else if (/tiền|kinh phí|tài trợ|ngân sách/.test(q)) {
+        reply = 'Kinh phí GhostLab được tính bằng đơn vị "suất mì tôm". Quỹ hiện tại: âm vô cực. Mỗi linh kiện mua về đều có giấy phép cư trú trong nghĩa địa sẵn.';
+      } else if (/trốn|đâu|ở đâu|mộng mơ/.test(q)) {
+        reply = 'Kẻ Mộng Mơ đang trốn sau đống board mạch cháy khu vực hàn. Nếu nghe tiếng hút thuốc của quạt SMOKE-TRAP thì đi hướng ngược lại.';
+      } else if (/tiến độ|dự án|bao giờ xong/.test(q)) {
+        reply = `Phòng lab hiện có ${projects.length} dự án ma. Tiến độ trung bình: "sắp xong" theo định nghĩa vũ trụ. Ước tính hoàn thành: khi bụi phủ kín Trái Đất.`;
+      } else {
+        reply = pick([
+          'Câu hỏi hay đấy — đáng tiếc câu trả lời cũng đang trong roadmap, trạng thái TRONG MƠ.',
+          'Tôi vừa hỏi con AMR — nó đang xoay vòng trầm cảm ngoài sàn nên chưa trả lời. Bạn cứ tin tôi là đúng đi.',
+          'Theo kinh nghiệm trực ban hầm ngầm của tôi: tắt nguồn bật lại. Nếu không hết thì thắp nén hương điện tử cho nó.',
+          'Debug tip cấp hầm: 90% vấn đề là dây cắm lỏng, 10% còn lại là niềm tin vào datasheet.',
+        ]);
+      }
+      return { reply, offline: true };
+    },
+    getAdminStatus: async () => ({ adminSet: false, keyConfigured: false, model: 'gemini-3.5-flash-lite', geminiStatus: 'no_key' }),
+    initAdmin: async () => true,
+    saveGeminiKey: async (_k, _a, model) => ({ adminSet: true, keyConfigured: true, model, geminiStatus: 'online' }),
+    boomAll: async () => {
+      for (const p of projects) p.smoking = true;
+      stats.mosfetExplosions += projects.length;
+      stats.friedIcCount += projects.length;
+      pushState();
+      emit('boom-all', `💥 KÍCH HOẢ HOẠN GIẢ LẬP: ${projects.length} dự án đồng loạt thả khói ma thuật. Nghĩa địa linh kiện sắp phải mở rộng đất.`);
+    },
     postRoast: async (projectId, author, role, text) => {
       const roast: RoastComment = {
         id: Math.random().toString(36).slice(2, 10),

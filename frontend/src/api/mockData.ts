@@ -155,6 +155,36 @@ export const mockProjects: DustyProject[] = [
       ],
     },
   },
+  {
+    id: 'amr-slam',
+    codeName: 'PRJ-AMR-SLAM',
+    name: 'AMR Định Vị SLAM & Điều Hướng Laser',
+    tagline:
+      'Đỉnh cao định vị LiDAR SLAM tự chủ không cần băng từ. Thực tế: Cứ bật lên là AMR xoay vòng tròn trầm cảm vì không nhận ra bản đồ.',
+    ghostStatus: 'Mất định vị trong không gian — 45% Hoàn thành',
+    damageReport: 'Rơi vỡ 1 cảm biến LiDAR 2D do cẩu thả khi bê ra bãi test.',
+    timeParadox: 'Dự kiến: 3 tháng | Đã ngâm: 6 tháng',
+    completionPercent: 45,
+    dustLevel: 70,
+    smoking: false,
+    position: [0, 0, 3.0],
+    incenseCount: 0,
+    bonkCount: 0,
+    roadmap: {
+      hardware: [
+        { status: 'Xong', description: 'Khung cơ khí 4 module Swerve Drive độc lập + SBC công nghiệp + Cảm biến LiDAR 2D.' },
+        { status: 'DangNgap', description: 'Mạch phân phối nguồn 24V cho hệ thống điều khiển động cơ (Steer BLDC + Drive BLDC).' },
+      ],
+      firmware: [
+        { status: 'Xong', description: 'Driver điều khiển Swerve Drive: độc lập góc lái + tốc độ lăn cho từng module bánh.' },
+        { status: 'DangNgap', description: 'Giao tiếp ROS2 micro-ROS trên vi điều khiển trung tâm (Thường xuyên bị mất gói tin qua UART).' },
+      ],
+      software: [
+        { status: 'Xong', description: 'Bản đồ Occupancy Grid Mapping bằng ROS2 Nav2 stack.' },
+        { status: 'TrongMo', description: 'Tính năng tự động né vật cản động bằng thuật toán DWA (Dynamic Window Approach) không tông vào nhân viên xưởng.' },
+      ],
+    },
+  },
 ];
 
 export const mockStats: LabStats = {
@@ -182,6 +212,7 @@ export const mockExcuses: string[] = [
   'Dust sensor ghi nhận độ bụi vượt ngưỡng đo. Cảm biến đã từ chức.',
   'AGV vừa đâm vào chân bàn lần thứ 34. Bàn đã được đổi chỗ, AGV đổi theo. Như có mối thù.',
   'Quạt hút khói kêu to hơn cả tiếng hàn. Lá phổi an toàn, màng nhĩ thì không.',
+  'AMR_SLAM: Xoay vòng trầm cảm 3 vòng rồi tự nhận ra bản đồ. Vẫn tuyên bố đang "tái cân bằng hệ tọa độ".',
   'Đề xuất đổi tên dự án thành "bảo tàng" để việc trễ tiến độ trở thành tính năng.',
 ];
 
@@ -219,4 +250,6 @@ export const mockRoasts: RoastComment[] = [
   { id: 'r8', projectId: 'ghost-agv', author: 'Kỹ Sư FMS', role: 'Người Viết Fleet Management Cho 1 Xe', text: 'Làm hệ thống điều phối đội xe cho đúng 1 con AGV là đỉnh cao của over-engineering. Tôi tự hào.', at: new Date().toISOString() },
   { id: 'r9', projectId: 'iron-biped', author: 'Nhà Đầu Tư Thiên Thần', role: 'Đã Rút Vốn', text: "Pitch deck nói 'Optimus Prime tại gia'. Deliverable sau 1 năm: 1 cái đùi và 19 file CAD tên giống hệt nhau.", at: new Date().toISOString() },
   { id: 'r10', projectId: 'iron-biped', author: 'Robot Trong Mô Phỏng', role: 'Nhân Chứng Sống', text: 'Tôi xác nhận trong mô phỏng nó đi được 3 bước rồi trồng cây chuối. Thuật toán cân bằng hoạt động... ngược.', at: new Date().toISOString() },
+  { id: 'r11', projectId: 'amr-slam', author: 'Bản Đồ Occupancy Grid', role: 'Nạn Nhân Bị Quên', text: 'Nó vẽ tôi ra rồi quên luôn tôi là ai. Mối quan hệ một chiều kiểu mới của kỷ nguyên SLAM.', at: new Date().toISOString() },
+  { id: 'r12', projectId: 'amr-slam', author: 'Chân Tủ Sắt', role: 'Nạn Nhân Tái Phạm', text: 'AGV đâm tôi vì mù đường. AMR đâm tôi sau khi quét LiDAR kỹ càng. Công nghệ tiến bộ rõ rệt.', at: new Date().toISOString() },
 ];

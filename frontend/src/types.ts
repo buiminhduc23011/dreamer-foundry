@@ -80,3 +80,24 @@ export type FxType = 'incense' | 'dust' | 'bonk' | 'boom';
 /** Điểm dừng của cinematic tour — id dự án hoặc lõi Arc Reactor. */
 export type TourFocus = string;
 export const REACTOR_FOCUS = 'reactor';
+
+/** Một lượt hội thoại với trợ lý trực ban. */
+export interface ChatTurn {
+  role: 'user' | 'model';
+  text: string;
+}
+
+export interface ChatReply {
+  reply: string;
+  /** true = backend chưa có key / Gemini lỗi → câu trả lời offline kiểu lab. */
+  offline: boolean;
+}
+
+export type GeminiStatus = 'locked' | 'no_key' | 'online' | 'invalid' | 'unreachable';
+
+export interface AdminStatus {
+  adminSet: boolean;
+  keyConfigured: boolean;
+  model: string;
+  geminiStatus: GeminiStatus;
+}

@@ -2,6 +2,7 @@
 backend/bin/
 backend/obj/
 backend/lab-state.json
+backend/chat-secrets.json
 
 # Node
 frontend/node_modules/

@@ -88,7 +88,7 @@ tar -xzf /tmp/deploy-update.tar.gz -C /tmp/ghostlab-update
 
 echo "Installing to `$DIR..."
 echo '$SudoPass' | sudo -S mkdir -p "`$DIR"
-echo '$SudoPass' | sudo -S rsync -av --delete --exclude='lab-state.json' /tmp/ghostlab-update/ "`$DIR/"
+echo '$SudoPass' | sudo -S rsync -av --delete --exclude='lab-state.json' --exclude='chat-secrets.json' /tmp/ghostlab-update/ "`$DIR/"
 echo '$SudoPass' | sudo -S chown -R ducne:ducne "`$DIR"
 chmod +x "`$DIR/GhostLab"
 

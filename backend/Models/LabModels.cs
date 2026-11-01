@@ -95,3 +95,11 @@ public class LabEvent
 public record BadIdeaRequest(string Title, string? SubmittedBy, int? CursedLevel);
 
 public record RoastRequest(string? Author, string? Role, string Text);
+
+public record ChatTurn(string? Role, string? Text);
+
+public record ChatRequest(string? Message, List<ChatTurn>? History);
+
+public record AdminInitRequest(string? AdminKey);
+
+public record GeminiKeyRequest(string? ApiKey, string? Model);

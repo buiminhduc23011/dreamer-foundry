@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
+import { MdOutlineCloud } from 'react-icons/md';
 import type { DustyProject } from '../types';
 import { useLabStore } from '../store/labStore';
 import { BurstEmitter, Cobweb, RisingEmitter } from './particles';
@@ -60,7 +61,7 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
     }
     // incense makes the hologram ring burn brighter
     const boost = incenseActive ? 1.8 : 1;
-    const flicker = sagging ? 0.3 + Math.random() * 0.5 : 1;
+    const flicker = sagging ? 0.55 + 0.25 * Math.sin(t * 16.3) * Math.sin(t * 5.1) : 1;
     if (ringMat.current) ringMat.current.opacity = Math.min(1, 0.5 * boost * flicker);
     if (glowLight.current) glowLight.current.intensity = 2.5 * boost * flicker + boomFlash.current * 30;
     boomFlash.current *= 0.85;
@@ -154,7 +155,7 @@ export function Workbench({ project, sagging, children }: WorkbenchProps) {
           <div className="mt-0.5 flex gap-3 text-[9px]">
             <span className="text-holo/70">▓ {project.completionPercent}% XONG</span>
             <span style={{ color: dustColor(project.dustLevel) }}>ĐỘ PHỦ BỤI: {Math.round(project.dustLevel)}%</span>
-            {project.smoking && <span className="text-danger animate-pulse">☁ KHÓI</span>}
+            {project.smoking && <span className="text-danger animate-pulse"><MdOutlineCloud className="inline-block align-[-2px]" /> KHÓI</span>}
           </div>
         </div>
       </Html>

@@ -6,7 +6,7 @@ import { useLabStore } from '../store/labStore';
 import { AmbientDust } from './particles';
 import { ArcReactor } from './ArcReactor';
 import { Workbench } from './Workbench';
-import { AgvModel, BipedModel, DroneModel, ForkliftModel, FumeExtractorModel } from './GhostModels';
+import { AgvModel, AmrRover, BipedModel, DroneModel, ForkliftModel, FumeExtractorModel } from './GhostModels';
 import { CameraRig } from './CameraRig';
 
 /* ---------- overhead fluorescents that stutter on bad power ---------- */
@@ -18,9 +18,9 @@ function FlickerSpot({ position, sagging, brownout }: { position: [number, numbe
   const amber = useMemo(() => new THREE.Color('#ffb02e'), []);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime + seed;
-    const buzz = Math.sin(t * 31) * Math.sin(t * 7.7) > -0.92 ? 1 : 0.15;
+    const buzz = Math.sin(t * 31) * Math.sin(t * 7.7) > -0.985 ? 1 : 0.55;
     // Brownout test: toàn lab chuyển amber và giật mạnh hơn sag thường.
-    const sag = brownout ? 0.25 + Math.random() * 0.55 : sagging ? 0.3 + Math.random() * 0.4 : 1;
+    const sag = brownout ? 0.3 + Math.random() * 0.4 : sagging ? 0.55 + 0.25 * Math.sin(t * 14 + seed) * Math.sin(t * 4.4 + seed) : 1;
     if (light.current) {
       light.current.intensity = 30 * buzz * sag;
       light.current.color.lerpColors(color, amber, brownout ? 0.85 : 0);
@@ -180,6 +180,7 @@ function SceneContent() {
           <BipedModel sagging={sagging} />
         </Workbench>
       )}
+      {byId('amr-slam') && <AmrRover project={byId('amr-slam')!} sagging={sagging} />}
 
       <CameraRig />
     </>

@@ -1,3 +1,6 @@
+import { AiOutlineAlert, AiOutlineBulb, AiOutlineFire, AiOutlineThunderbolt, AiOutlineWarning } from 'react-icons/ai';
+import { GiGraveyard } from 'react-icons/gi';
+import { MdOutlineAir, MdOutlineHardware, MdOutlineWhatshot } from 'react-icons/md';
 import { useLabStore } from '../store/labStore';
 
 const modeLabel = { connecting: 'ĐANG KẾT NỐI…', live: 'SIGNALR • LIVE', mock: 'MÔ PHỎNG NỘI BỘ' } as const;
@@ -43,11 +46,11 @@ export function TopBar() {
         <span className="whitespace-nowrap text-holo/80">
           ARC REACTOR:{' '}
           <b className={sagging ? 'text-danger animate-pulse' : 'text-emerald-300'}>
-            {brownoutActive ? '3.2' : (stats?.voltage.toFixed(1) ?? '5.0')}V{sagging ? ' ⚠SAG' : ''}
+            {brownoutActive ? '3.2' : (stats?.voltage.toFixed(1) ?? '5.0')}V{sagging ? <><AiOutlineWarning className="inline-block align-[-2px]" />SAG</> : ''}
           </b>
         </span>
         <span className="whitespace-nowrap text-holo/50">
-          🕯 {stats?.totalIncense ?? 0} · 🔨 {stats?.totalBonks ?? 0} · 💥 {stats?.mosfetExplosions ?? 0}
+          <AiOutlineFire className="inline-block align-[-2px] text-[12px]" /> {stats?.totalIncense ?? 0} · <MdOutlineHardware className="inline-block align-[-2px] text-[12px]" /> {stats?.totalBonks ?? 0} · <MdOutlineWhatshot className="inline-block align-[-2px] text-[12px]" /> {stats?.mosfetExplosions ?? 0}
         </span>
       </div>
 
@@ -59,35 +62,35 @@ export function TopBar() {
           className={`hud-panel px-3 py-2 font-mono text-[10px] transition-colors ${brownoutActive ? 'bg-amber-glow/20 text-amber-glow animate-pulse' : 'text-holo/90 hover:bg-holo/10'}`}
           title="Test quá tải nguồn — sụt rail còn 3.2V trong 2 giây"
         >
-          ⚡ QUÁ TẢI
+          <AiOutlineThunderbolt className="inline-block align-[-2px] text-[13px]" /> QUÁ TẢI
         </button>
         <button
           onClick={cleanAll}
           className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
           title="Xịt khí nén vệ sinh toàn lab — bụi về 0%"
         >
-          💨 XỊT BỤI
+          <MdOutlineAir className="inline-block align-[-2px] text-[13px]" /> XỊT BỤI
         </button>
         <button
           onClick={() => void setGraveyardOpen(true)}
           className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
           title="Nghĩa địa linh kiện"
         >
-          🪦 NGHĨA ĐỊA
+          <GiGraveyard className="inline-block align-[-2px] text-[13px]" /> NGHĨA ĐỊA
         </button>
         <button
           onClick={() => void setIdeasOpen(true)}
           className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
           title="Xúi dại kỹ sư"
         >
-          💡 XÚI DẠI
+          <AiOutlineBulb className="inline-block align-[-2px] text-[13px]" /> XÚI DẠI
         </button>
         <button
           onClick={togglePanic}
           className="hud-panel hud-panel-amber px-3 py-2 font-mono text-[10px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/10"
           title="Quyền năng tối thượng của mọi kỹ sư"
         >
-          🚨 SẾP/VỢ TỚI
+          <AiOutlineAlert className="inline-block align-[-2px] text-[13px]" /> SẾP/VỢ TỚI
         </button>
       </div>
     </header>

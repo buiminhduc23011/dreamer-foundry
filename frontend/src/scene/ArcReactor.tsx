@@ -16,9 +16,11 @@ export function ArcReactor({ sagging, brownout }: { sagging: boolean; brownout: 
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    const flicker = sagging || brownout
-      ? 0.25 + Math.random() * 0.35
-      : 0.9 + 0.1 * Math.sin(t * 3.7) + 0.05 * Math.sin(t * 11.3);
+    const flicker = brownout
+      ? 0.3 + 0.25 * Math.sin(t * 23) * Math.sin(t * 6.1) + Math.random() * 0.12
+      : sagging
+        ? 0.55 + 0.2 * Math.sin(t * 15) * Math.sin(t * 4.6)
+        : 0.9 + 0.1 * Math.sin(t * 3.7) + 0.05 * Math.sin(t * 11.3);
     if (ring1.current) ring1.current.rotation.z = t * 0.6;
     if (ring2.current) ring2.current.rotation.z = -t * 0.35;
     tmpColor.lerpColors(CYAN, AMBER, brownout ? 0.8 : 0).multiplyScalar(flicker);

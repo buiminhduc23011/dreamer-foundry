@@ -106,14 +106,15 @@ canvas {
   text-shadow: 0 0 8px rgba(255, 176, 46, 0.5);
 }
 
-/* ---------- voltage sag: whole HUD dims and strobes ---------- */
+/* ---------- voltage sag: whole HUD dims — nhấp nhôn mềm, không strobe ---------- */
 .voltage-sag {
-  animation: voltageSag 0.7s steps(2, jump-none) infinite;
+  animation: voltageSag 1.6s ease-in-out infinite;
 }
 @keyframes voltageSag {
-  0% { filter: brightness(1); }
-  50% { filter: brightness(0.62) saturate(0.8); }
-  100% { filter: brightness(1); }
+  0%, 100% { filter: brightness(0.95) saturate(0.95); }
+  35% { filter: brightness(0.74) saturate(0.85); }
+  52% { filter: brightness(0.9); }
+  74% { filter: brightness(0.68) saturate(0.8); }
 }
 
 /* ---------- scrollbar ---------- */
@@ -179,6 +180,40 @@ canvas {
 @keyframes cursorBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* ---------- chat widget — trợ lý trực ban ---------- */
+.chat-panel {
+  animation: chatIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes chatIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chat-fab {
+  animation: fabGlow 2.4s ease-in-out infinite;
+}
+@keyframes fabGlow {
+  0%, 100% { box-shadow: 0 0 18px rgba(46, 230, 255, 0.12); }
+  50% { box-shadow: 0 0 30px rgba(46, 230, 255, 0.3); }
+}
+
+.chat-led {
+  animation: ledPulse 1.6s ease-in-out infinite;
+}
+@keyframes ledPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.typing-dot {
+  display: inline-block;
+  animation: typingDot 1.1s ease-in-out infinite;
+}
+@keyframes typingDot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
 }
 
 /* ---------- panic spreadsheet ---------- */

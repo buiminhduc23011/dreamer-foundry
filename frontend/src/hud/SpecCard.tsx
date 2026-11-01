@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AiOutlineVideoCamera } from 'react-icons/ai';
 import { selectTourProject, useLabStore } from '../store/labStore';
 import { REACTOR_FOCUS } from '../types';
 
@@ -103,7 +104,7 @@ export function TourBadge() {
   return (
     <div className="pointer-events-none fixed left-1/2 top-16 z-40 -translate-x-1/2">
       <div className="tour-badge hud-panel hud-panel-amber px-3 py-1.5 font-mono text-[10px] font-bold text-amber-glow">
-        🎥 [CINEMATIC LAB TOUR: ACTIVE]
+        <AiOutlineVideoCamera className="mr-1 inline-block align-[-2px] text-[13px]" />[CINEMATIC LAB TOUR: ACTIVE]
       </div>
     </div>
   );

@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from 'react';
+import type { IconType } from 'react-icons';
+import { AiFillCaretUp, AiOutlineBulb, AiOutlineClose } from 'react-icons/ai';
+import { GiCoffin, GiGraveyard } from 'react-icons/gi';
 import { useLabStore } from '../store/labStore';
 
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function ModalShell({ title, onClose, children, icon: Icon }: { title: string; onClose: () => void; children: React.ReactNode; icon?: IconType }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-abyss/70 backdrop-blur-sm" onClick={onClose}>
       <div className="hud-panel w-[560px] max-w-[92vw]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-holo/20 px-4 py-3">
-          <div className="hud-title holo-text text-xs font-bold">{title}</div>
+          <div className="hud-title holo-text text-xs font-bold">{Icon && <Icon className="mr-1.5 inline-block align-[-2px] text-[15px]" />}{title}</div>
           <button onClick={onClose} className="border border-holo/40 px-2 py-0.5 font-mono text-[10px] text-holo/70 hover:bg-holo/10">
-            ✕
+            <AiOutlineClose className="inline-block" />
           </button>
         </div>
         <div className="max-h-[65vh] overflow-y-auto p-4">{children}</div>
@@ -25,7 +28,7 @@ export function GraveyardModal() {
 
   if (!open) return null;
   return (
-    <ModalShell title="🪦 NGHĨA ĐỊA LINH KIỆN — HALL OF FALLEN SILICON" onClose={close}>
+    <ModalShell title="NGHĨA ĐỊA LINH KIỆN — HALL OF FALLEN SILICON" onClose={close} icon={GiGraveyard}>
       <p className="mb-4 font-mono text-[9px] italic text-holo/50">
         Những con chip đã hy sinh thân mình thả khói ma thuật để nhân loại được… thất vọng. Xin dành một phút mặc niệm (và một nén hương điện tử).
       </p>
@@ -36,7 +39,7 @@ export function GraveyardModal() {
             <span className="font-mono text-[8px] text-holo/40">{new Date(g.diedAt).toLocaleDateString('vi-VN')}</span>
           </div>
           <div className="mt-1 font-mono text-[9px] italic text-holo/70">"{g.epitaph}"</div>
-          <div className="mt-1 font-mono text-[8px] text-danger/80">⚰ Nguyên nhân: {g.causeOfDeath}</div>
+          <div className="mt-1 font-mono text-[8px] text-danger/80"><GiCoffin className="mr-1 inline-block align-[-2px]" />Nguyên nhân: {g.causeOfDeath}</div>
         </div>
       ))}
     </ModalShell>
@@ -64,7 +67,7 @@ export function BadIdeasModal() {
   };
 
   return (
-    <ModalShell title="💡 XÚI DẠI KỸ SƯ — SUBMIT A TERRIBLE IDEA" onClose={close}>
+    <ModalShell title="XÚI DẠI KỸ SƯ — SUBMIT A TERRIBLE IDEA" onClose={close} icon={AiOutlineBulb}>
       <p className="mb-3 font-mono text-[9px] italic text-holo/50">
         Kỹ sư trưởng của lab này có một điểm yếu chí mạng: không thể cưỡng lại ý tưởng mới. Hãy phân tán sự chú ý của anh ấy thêm nữa.
       </p>
@@ -101,7 +104,7 @@ export function BadIdeasModal() {
             className="flex shrink-0 flex-col items-center border border-holo/30 px-2 py-1 font-mono text-[9px] text-holo transition-colors hover:border-amber-glow hover:text-amber-glow"
             title="Upvote ý tưởng tồi này"
           >
-            <span>▲</span>
+            <span><AiFillCaretUp /></span>
             <span className="font-bold">{i.upvotes}</span>
           </button>
           <div className="min-w-0 flex-1">

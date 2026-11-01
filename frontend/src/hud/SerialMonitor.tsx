@@ -26,6 +26,10 @@ const SERIAL_POOL: [Level, string][] = [
   ['DEBUG', 'DS18B20: Mỏ hàn 380°C — quạt tự bật, lá phổi tạm an toàn'],
   ['WARN', 'BTS7960: Tản nhiệt 94°C — có thể nướng bánh mì trực tiếp'],
   ['ERR', 'STACK_OVERFLOW: Đệ quy hàm fixBug() gọi chính nó 8192 lần'],
+  ['ERR', 'SLAM: Mất định vị — AMR xoay vòng trầm cảm lần thứ 8 trong giờ'],
+  ['WARN', 'LIDAR: Frame mất 340ms — cảm biến đang ngắm cảnh hay đã chết?'],
+  ['INFO', 'NAV2: Occupancy grid 512x512 rebuild xong — AMR vẫn không biết mình ở đâu'],
+  ['DEBUG', 'SWERVE: Pod #2 góc lái lệch 12° — xe đang đi ngang kiểu cua'],
 ];
 
 const levelColor: Record<Level, string> = {

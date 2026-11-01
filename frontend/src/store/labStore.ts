@@ -74,6 +74,8 @@ interface LabStore {
   /** Ghi nhận tương tác người dùng — reset idle timer, cắt tour ngay. */
   recordActivity: () => void;
   setTour: (active: boolean, focus: TourFocus | null) => void;
+  /** Đẩy event local (vd AMR mất định vị) vào live feed + serial monitor. */
+  pushFeed: (type: string, projectId: string | null, message: string) => void;
 }
 
 export const useLabStore = create<LabStore>((set, get) => ({
@@ -130,8 +132,16 @@ export const useLabStore = create<LabStore>((set, get) => ({
               fx[p.id] = { ...cur, dust: cur.dust + 1 };
             }
           }
+          // Hoả hoạn giả lập → toàn bộ dự án đồng loạt thả khói.
+          if (evt.type === 'boom-all') {
+            for (const p of s.projects) {
+              const cur = fx[p.id] ?? { incense: 0, dust: 0, bonk: 0, boom: 0 };
+              fx[p.id] = { ...cur, boom: cur.boom + 1 };
+            }
+          }
           if (evt.type === 'bonk') shakeNonce++;
-          if (evt.type === 'boom') flashNonce++;
+          if (evt.type === 'boom' || evt.type === 'boom-all') flashNonce++;
+          if (evt.type === 'boom-all') shakeNonce++;
           return { feed: [evt, ...s.feed].slice(0, MAX_FEED), fx, shakeNonce, flashNonce };
         }),
     }).then((client) => set({ client }));
@@ -217,6 +227,9 @@ export const useLabStore = create<LabStore>((set, get) => ({
   },
 
   setTour: (active, focus) => set({ tourActive: active, tourFocusId: focus }),
+
+  pushFeed: (type, projectId, message) =>
+    set((s) => ({ feed: [{ type, projectId, message, at: new Date().toISOString() }, ...s.feed].slice(0, MAX_FEED) })),
 }));
 
 export const selectProject = (s: LabStore) =>

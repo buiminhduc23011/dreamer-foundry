@@ -10,10 +10,13 @@ builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddCors(o => o.AddPolicy("frontend", p =>
-    p.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+    p.SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u)
+        && (u.Host == "localhost" || u.Host == "127.0.0.1"))
      .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 
 builder.Services.AddSingleton<LabStateService>();
+builder.Services.AddSingleton<ChatSecretsService>();
+builder.Services.AddSingleton<GeminiChatService>();
 // Singleton + hosted wrapper để endpoint hazard gọi được TriggerBrownout.
 builder.Services.AddSingleton<DustAccumulationService>();
 builder.Services.AddHostedService(p => p.GetRequiredService<DustAccumulationService>());
@@ -186,7 +189,7 @@ api.MapPost("/bad-ideas", async (BadIdeaRequest req, LabStateService s, IHubCont
         {
             Id = Guid.NewGuid().ToString("N")[..8],
             Title = req.Title.Trim(),
-            SubmittedBy = string.IsNullOrWhiteSpace(req.SubmittedBy) ? "Anonymous Enabler" : req.SubmittedBy.Trim()[..40],
+            SubmittedBy = string.IsNullOrWhiteSpace(req.SubmittedBy) ? "Anonymous Enabler" : Clamp(req.SubmittedBy.Trim(), 40),
             CursedLevel = Math.Clamp(req.CursedLevel ?? 50, 0, 100),
             SubmittedAt = DateTime.UtcNow
         };
@@ -234,8 +237,8 @@ api.MapPost("/projects/{id}/roasts", async (string id, RoastRequest req, LabStat
         {
             Id = Guid.NewGuid().ToString("N")[..8],
             ProjectId = s.GetProject(id)!.Id,
-            Author = string.IsNullOrWhiteSpace(req.Author) ? "Kỹ Sư Ẩn Danh" : req.Author.Trim()[..40],
-            Role = string.IsNullOrWhiteSpace(req.Role) ? "Người Qua Đường" : req.Role.Trim()[..40],
+            Author = string.IsNullOrWhiteSpace(req.Author) ? "Kỹ Sư Ẩn Danh" : Clamp(req.Author.Trim(), 40),
+            Role = string.IsNullOrWhiteSpace(req.Role) ? "Người Qua Đường" : Clamp(req.Role.Trim(), 40),
             Text = req.Text.Trim(),
             At = DateTime.UtcNow
         };
@@ -252,7 +255,71 @@ api.MapPost("/projects/{id}/roasts", async (string id, RoastRequest req, LabStat
     return Results.Ok(roast);
 });
 
+// ---- Trợ lý trực ban — proxy Gemini với persona GhostLab, key giữ phía server ----
+api.MapPost("/chat", async (ChatRequest req, GeminiChatService chat) =>
+{
+    var msg = (req.Message ?? "").Trim();
+    if (msg.Length == 0) return Results.BadRequest(new { error = "Tin nhắn trống — giống phần lớn roadmap trong xưởng này." });
+    if (msg.Length > 1000) msg = msg[..1000];
+    var r = await chat.ReplyAsync(msg, req.History ?? new());
+    return Results.Ok(new { reply = r.Text, offline = r.Offline });
+});
+
+// ---- Admin bí mật — chỉ đường link huyền thoại mới dẫn tới ----
+static bool IsAdmin(HttpRequest r, ChatSecretsService sec) => sec.CheckAdmin(r.Headers["X-Admin-Key"].FirstOrDefault());
+
+api.MapGet("/admin/status", async (HttpRequest http, ChatSecretsService sec, GeminiChatService chat) =>
+{
+    if (!sec.HasAdminKey) return Results.Ok(new { adminSet = false, keyConfigured = false, model = sec.Model, geminiStatus = "locked" });
+    if (!IsAdmin(http, sec)) return Results.Unauthorized();
+    var st = await chat.GetStatusAsync();
+    return Results.Ok(new { adminSet = true, keyConfigured = chat.HasKey, model = sec.Model, geminiStatus = st });
+});
+
+api.MapPost("/admin/init", (AdminInitRequest req, ChatSecretsService sec) =>
+{
+    var k = (req.AdminKey ?? "").Trim();
+    if (sec.HasAdminKey) return Results.Conflict(new { error = "Đã có mã chỉ huy rồi." });
+    if (k.Length < 4 || k.Length > 64) return Results.BadRequest(new { error = "Mã chỉ huy 4-64 ký tự, đừng để '1234'." });
+    sec.InitAdminKey(k);
+    return Results.Ok(new { adminSet = true });
+});
+
+api.MapPost("/admin/gemini-key", async (GeminiKeyRequest req, HttpRequest http, ChatSecretsService sec, GeminiChatService chat) =>
+{
+    if (!IsAdmin(http, sec)) return Results.Unauthorized();
+    var model = (req.Model ?? "").Trim();
+    sec.SaveGemini((req.ApiKey ?? "").Trim(), model.Length > 0 ? model : null);
+    chat.InvalidateStatus();
+    var st = await chat.GetStatusAsync();
+    return Results.Ok(new { keyConfigured = chat.HasKey, model = sec.Model, geminiStatus = st });
+});
+
+// Kích hoả hoạn giả lập — bùm toàn bộ IC một lúc cho vui cửa vui nhà.
+api.MapPost("/hazard/boom-all", async (LabStateService s, IHubContext<LabHub> hub) =>
+{
+    var total = s.Mutate(() =>
+    {
+        foreach (var p in s.Projects) p.Smoking = true;
+        s.Stats.MosfetExplosions += s.Projects.Count;
+        s.Stats.FriedIcCount += s.Projects.Count;
+        return s.Projects.Count;
+    });
+
+    await hub.Clients.All.SendAsync(LabHub.ProjectUpdated, s.Projects);
+    await hub.Clients.All.SendAsync(LabHub.StatsUpdated, s.Stats);
+    await hub.Clients.All.SendAsync(LabHub.LabEventFeed, new LabEvent
+    {
+        Type = "boom-all",
+        Message = $"💥 KÍCH HOẢ HOẠN GIẢ LẬP: {total} dự án đồng loạt thả khói ma thuật. Nghĩa địa linh kiện sắp phải mở rộng đất."
+    });
+    return Results.Ok(new { smoking = total });
+});
+
 // SPA fallback — everything non-API serves the haunted lab
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// Cắt chuỗi an toàn — [..n] ném exception nếu chuỗi ngắn hơn n.
+static string Clamp(string s, int max) => s.Length <= max ? s : s[..max];

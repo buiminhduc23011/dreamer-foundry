@@ -6,7 +6,7 @@ namespace GhostLab.Services;
 
 /// <summary>
 /// Thread-safe in-memory lab state, persisted to lab-state.json so the dust
-/// level canonically survives restarts. Seeded with the 5 ghost projects.
+/// level canonically survives restarts. Seeded with the 6 ghost projects.
 /// </summary>
 public class LabStateService
 {
@@ -38,6 +38,7 @@ public class LabStateService
         "Dust sensor ghi nhận độ bụi vượt ngưỡng đo. Cảm biến đã từ chức.",
         "AGV vừa đâm vào chân bàn lần thứ 34. Bàn đã được đổi chỗ, AGV đổi theo. Như có mối thù.",
         "Quạt hút khói kêu to hơn cả tiếng hàn. Lá phổi an toàn, màng nhĩ thì không.",
+        "AMR_SLAM: Xoay vòng trầm cảm 3 vòng rồi tự nhận ra bản đồ. Vẫn tuyên bố đang 'tái cân bằng hệ tọa độ'.",
         "Đề xuất đổi tên dự án thành 'bảo tàng' để việc trễ tiến độ trở thành tính năng."
     };
 
@@ -64,8 +65,8 @@ public class LabStateService
                         Roasts = snap.Roasts ?? SeedRoasts();
                         Stats = snap.Stats ?? new LabStats();
 
-                        // Roster cũ < 5 dự án → reseed roster, vẫn giữ lại bụi/hương/gõ đã tích lũy theo id.
-                        if (Projects.Count < 5)
+                        // Roster luôn sync theo seed mới nhất — static content lấy từ seed,
+                        // chỉ giữ lại bụi/hương/gõ/khói đã tích lũy theo id.
                         {
                             var fresh = SeedProjects();
                             foreach (var p in fresh)
@@ -78,8 +79,12 @@ public class LabStateService
                                 p.Smoking = old.Smoking;
                             }
                             Projects = fresh;
-                            Save();
                         }
+
+                        // Bổ sung roast/mộ seed của project mới khi state cũ chưa có — check theo Id để deferred Where không nuốt mất entry thứ 2.
+                        Roasts.AddRange(SeedRoasts().Where(r => GetProject(r.ProjectId) != null && Roasts.All(x => x.Id != r.Id)));
+                        Graveyard.AddRange(SeedGraveyard().Where(g => Graveyard.All(x => x.Component != g.Component)));
+                        Save();
                         return;
                     }
                 }
@@ -292,6 +297,38 @@ public class LabStateService
                     new() { Status = RoadmapStatus.TrongMo, Description = "Web UI Digital Twin 3D theo dõi góc khớp và nhiệt độ từng motor." },
                 }
             }
+        },
+        new DustyProject
+        {
+            Id = "amr-slam",
+            CodeName = "PRJ-AMR-SLAM",
+            Name = "AMR Định Vị SLAM & Điều Hướng Laser",
+            Tagline = "Đỉnh cao định vị LiDAR SLAM tự chủ không cần băng từ. Thực tế: Cứ bật lên là AMR xoay vòng tròn trầm cảm vì không nhận ra bản đồ.",
+            GhostStatus = "Mất định vị trong không gian — 45% Hoàn thành",
+            DamageReport = "Rơi vỡ 1 cảm biến LiDAR 2D do cẩu thả khi bê ra bãi test.",
+            TimeParadox = "Dự kiến: 3 tháng | Đã ngâm: 6 tháng",
+            CompletionPercent = 45,
+            DustLevel = 70,
+            Smoking = false,
+            Position = new[] { 0.0, 0.0, 3.0 },
+            Roadmap = new Roadmap
+            {
+                Hardware = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Khung cơ khí 4 module Swerve Drive độc lập + SBC công nghiệp + Cảm biến LiDAR 2D." },
+                    new() { Status = RoadmapStatus.DangNgap, Description = "Mạch phân phối nguồn 24V cho hệ thống điều khiển động cơ (Steer BLDC + Drive BLDC)." },
+                },
+                Firmware = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Driver điều khiển Swerve Drive: độc lập góc lái + tốc độ lăn cho từng module bánh." },
+                    new() { Status = RoadmapStatus.DangNgap, Description = "Giao tiếp ROS2 micro-ROS trên vi điều khiển trung tâm (Thường xuyên bị mất gói tin qua UART)." },
+                },
+                Software = new()
+                {
+                    new() { Status = RoadmapStatus.Xong, Description = "Bản đồ Occupancy Grid Mapping bằng ROS2 Nav2 stack." },
+                    new() { Status = RoadmapStatus.TrongMo, Description = "Tính năng tự động né vật cản động bằng thuật toán DWA (Dynamic Window Approach) không tông vào nhân viên xưởng." },
+                }
+            }
         }
     };
 
@@ -306,6 +343,7 @@ public class LabStateService
         new() { Id = "g7", Component = "Servo MG996R x6", Epitaph = "Kêu rít như đàn hồi ma rồi im lặng vĩnh viễn", CauseOfDeath = "Bị ép gập 180° bởi thuật toán chưa kiểm chứng", DiedAt = DateTime.UtcNow.AddMonths(-1) },
         new() { Id = "g8", Component = "Ống hút PVC Ø75", Epitaph = "Uốn cong như giấc mơ gập khúc của nó", CauseOfDeath = "Để cạnh mỏ hàn 400°C trong tầm 4 giây", DiedAt = DateTime.UtcNow.AddDays(-19) },
         new() { Id = "g9", Component = "Cầu H BTS7960 #2", Epitaph = "Tản nhiệt nóng đến mức nướng được bánh mì", CauseOfDeath = "Chở 5kg lên dốc 12° liên tục 3 phút", DiedAt = DateTime.UtcNow.AddDays(-6) },
+        new() { Id = "g10", Component = "Cảm biến LiDAR 2D RPLIDAR", Epitaph = "Quét 360° được hết mọi thứ trừ tương lai của nó", CauseOfDeath = "Rơi khỏi tay khi bê AMR ra bãi test", DiedAt = DateTime.UtcNow.AddDays(-3) },
     };
 
     private static List<RoastComment> SeedRoasts() => new()
@@ -320,5 +358,7 @@ public class LabStateService
         new() { Id = "r8", ProjectId = "ghost-agv", Author = "Kỹ Sư FMS", Role = "Người Viết Fleet Management Cho 1 Xe", Text = "Làm hệ thống điều phối đội xe cho đúng 1 con AGV là đỉnh cao của over-engineering. Tôi tự hào.", At = DateTime.UtcNow.AddDays(-3) },
         new() { Id = "r9", ProjectId = "iron-biped", Author = "Nhà Đầu Tư Thiên Thần", Role = "Đã Rút Vốn", Text = "Pitch deck nói 'Optimus Prime tại gia'. Deliverable sau 1 năm: 1 cái đùi và 19 file CAD tên giống hệt nhau.", At = DateTime.UtcNow.AddDays(-20) },
         new() { Id = "r10", ProjectId = "iron-biped", Author = "Robot Trong Mô Phỏng", Role = "Nhân Chứng Sống", Text = "Tôi xác nhận trong mô phỏng nó đi được 3 bước rồi trồng cây chuối. Thuật toán cân bằng hoạt động... ngược.", At = DateTime.UtcNow.AddDays(-2) },
+        new() { Id = "r11", ProjectId = "amr-slam", Author = "Bản Đồ Occupancy Grid", Role = "Nạn Nhân Bị Quên", Text = "Nó vẽ tôi ra rồi quên luôn tôi là ai. Mối quan hệ một chiều kiểu mới của kỷ nguyên SLAM.", At = DateTime.UtcNow.AddDays(-5) },
+        new() { Id = "r12", ProjectId = "amr-slam", Author = "Chân Tủ Sắt", Role = "Nạn Nhân Tái Phạm", Text = "AGV đâm tôi vì mù đường. AMR đâm tôi sau khi quét LiDAR kỹ càng. Công nghệ tiến bộ rõ rệt.", At = DateTime.UtcNow.AddDays(-1) },
     };
 }

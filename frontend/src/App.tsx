@@ -5,7 +5,9 @@ import { ExcuseConsole } from './hud/ExcuseConsole';
 import { InspectorDrawer } from './hud/InspectorDrawer';
 import { NavDock } from './hud/NavDock';
 import { BadIdeasModal, GraveyardModal } from './hud/Modals';
+import { ChatWidget } from './hud/ChatWidget';
 import { PanicOverlay } from './hud/PanicOverlay';
+import { SecretAdmin } from './hud/SecretAdmin';
 import { SerialMonitor } from './hud/SerialMonitor';
 import { SpecCard, TourBadge } from './hud/SpecCard';
 import { useLabStore } from './store/labStore';
@@ -48,6 +50,8 @@ export default function App() {
       <BadIdeasModal />
       <BoomFlash />
       <PanicOverlay />
+      <ChatWidget />
+      <SecretAdmin />
     </div>
   );
 }

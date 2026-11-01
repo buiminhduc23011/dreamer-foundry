@@ -70,10 +70,10 @@ public class DustAccumulationService : BackgroundService
                             evt = new LabEvent { Type = "power", Message = "GHOSTLAB TELEMETRY: nguồn hồi phục 5.0V. Ai đó đã rút ấm siêu tốc." };
                         }
                     }
-                    else if (Random.Shared.NextDouble() < 0.06)
+                    else if (Random.Shared.NextDouble() < 0.02)
                     {
                         _sagging = true;
-                        _sagTicksRemaining = 1 + Random.Shared.Next(3);
+                        _sagTicksRemaining = 1 + Random.Shared.Next(2);
                         _state.Stats.Voltage = 3.1 + Random.Shared.NextDouble() * 0.4;
                         _state.Stats.VoltageSagging = true;
                         evt = new LabEvent { Type = "power", Message = $"⚡ SỤT NGUỒN: rail 5V còn {_state.Stats.Voltage:F1}V. Hologram chớp tắt như đuốc sắp tàn." };
