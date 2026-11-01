@@ -15,8 +15,9 @@ export function TopBar() {
     <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-stretch gap-2 p-3">
       {/* identity block */}
       <div className="hud-panel pointer-events-auto flex items-center gap-3 px-4 py-2">
+        <img src="/dbi-logo.svg" alt="DBI" className="h-8 w-8 rounded-md" />
         <div>
-          <div className="hud-title holo-text text-sm font-bold">KẺ MỘNG MƠ</div>
+          <div className="hud-title holo-text text-sm font-bold">GHOSTLAB</div>
           <div className="font-mono text-[9px] tracking-[0.3em] text-holo/60">DUSTY STARK LAB v0.4-alpha</div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-# KẺ MỘNG MƠ // DUSTY STARK LAB
+# GHOSTLAB // DUSTY STARK LAB
 
 > Hầm ngầm Tony Stark phiên bản đắp chiếu & đợi linh kiện.
 > A full-stack interactive 3D memorial to three ghost projects that will
