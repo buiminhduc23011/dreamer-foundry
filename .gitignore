@@ -1,0 +1,18 @@
+# .NET
+backend/bin/
+backend/obj/
+backend/lab-state.json
+
+# Node
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# publish artifacts
+publish/
+deploy-update-*.tar.gz
+deploy-remote-*.sh
+
+# misc
+*.png
+.DS_Store

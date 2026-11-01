@@ -1,0 +1,76 @@
+import { useLabStore } from '../store/labStore';
+
+const modeLabel = { connecting: 'ĐANG KẾT NỐI…', live: 'SIGNALR • LIVE', mock: 'MÔ PHỎNG NỘI BỘ' } as const;
+const modeDot = { connecting: 'dot-dead', live: 'dot-live', mock: 'dot-mock' } as const;
+
+export function TopBar() {
+  const mode = useLabStore((s) => s.mode);
+  const stats = useLabStore((s) => s.stats);
+  const togglePanic = useLabStore((s) => s.togglePanic);
+  const setGraveyardOpen = useLabStore((s) => s.setGraveyardOpen);
+  const setIdeasOpen = useLabStore((s) => s.setIdeasOpen);
+  const sagging = stats?.voltageSagging ?? false;
+
+  return (
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-stretch gap-2 p-3">
+      {/* identity block */}
+      <div className="hud-panel pointer-events-auto flex items-center gap-3 px-4 py-2">
+        <div>
+          <div className="hud-title holo-text text-sm font-bold">KẺ MỘNG MƠ</div>
+          <div className="font-mono text-[9px] tracking-[0.3em] text-holo/60">DUSTY STARK LAB v0.4-alpha</div>
+        </div>
+      </div>
+
+      {/* telemetry strip */}
+      <div className={`hud-panel pointer-events-auto flex flex-1 items-center gap-5 overflow-x-auto px-4 py-2 font-mono text-[10px] ${sagging ? 'voltage-sag' : ''}`}>
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          <i className={`dot ${modeDot[mode]}`} />
+          <span className={mode === 'live' ? 'text-emerald-300' : 'text-amber-glow'}>{modeLabel[mode]}</span>
+        </span>
+        <span className="whitespace-nowrap text-holo/80">
+          IC ĐÃ BỐC KHÓI: <b className="text-danger">{stats?.friedIcCount ?? 27}</b>
+        </span>
+        <span className="whitespace-nowrap text-holo/80">
+          BỤI TB PHÒNG LAB: <b className="amber-text">{stats?.averageDust?.toFixed(0) ?? '—'}%</b>
+        </span>
+        <span className="whitespace-nowrap text-holo/80">
+          ÁP LỰC NGƯỜI XEM: <b className="holo-text">{stats?.viewerPressure ?? 0}</b>
+        </span>
+        <span className="whitespace-nowrap text-holo/80">
+          ARC REACTOR:{' '}
+          <b className={sagging ? 'text-danger animate-pulse' : 'text-emerald-300'}>
+            {stats?.voltage.toFixed(1) ?? '5.0'}V{sagging ? ' ⚠SAG' : ''}
+          </b>
+        </span>
+        <span className="whitespace-nowrap text-holo/50">
+          🕯 {stats?.totalIncense ?? 0} · 🔨 {stats?.totalBonks ?? 0} · 💥 {stats?.mosfetExplosions ?? 0}
+        </span>
+      </div>
+
+      {/* action buttons */}
+      <div className="pointer-events-auto flex gap-2">
+        <button
+          onClick={() => void setGraveyardOpen(true)}
+          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
+          title="Nghĩa địa linh kiện"
+        >
+          🪦 NGHĨA ĐỊA
+        </button>
+        <button
+          onClick={() => void setIdeasOpen(true)}
+          className="hud-panel px-3 py-2 font-mono text-[10px] text-holo/90 transition-colors hover:bg-holo/10"
+          title="Xúi dại kỹ sư"
+        >
+          💡 XÚI DẠI
+        </button>
+        <button
+          onClick={togglePanic}
+          className="hud-panel hud-panel-amber px-3 py-2 font-mono text-[10px] font-bold text-amber-glow transition-colors hover:bg-amber-glow/10"
+          title="Quyền năng tối thượng của mọi kỹ sư"
+        >
+          🚨 SẾP/VỢ ĐANG TỚI
+        </button>
+      </div>
+    </header>
+  );
+}
