@@ -88,4 +88,14 @@ every hologram and strobe-dimming the entire HUD until the kettle is unplugged.
 ## Config
 
 Frontend API base defaults to `http://localhost:5000`; override with
-`VITE_API_URL` env var. Backend port in `backend/appsettings.json` (`Urls`).
+`VITE_API_URL` env var. Backend dev port in `backend/appsettings.Development.json`.
+
+## Deploy to home-server
+
+```bat
+deploy
+```
+
+One command: build → publish self-contained linux-x64 → scp → systemd
+`ghostlab` on `/opt/ghostlab:5293` → health check. Chi tiết: `deploy/README.md`.
+Live at https://ghostlab.dbivn.com/ (Cloudflare tunnel `dbi-react-app-tunnel`).
