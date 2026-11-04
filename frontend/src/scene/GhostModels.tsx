@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AiOutlineWarning } from 'react-icons/ai';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, Sparkles, useGLTF } from '@react-three/drei';
@@ -1212,6 +1212,87 @@ const AMR_WHEEL_RADIUS = 0.1493;
 const AMR_CRUISE_SPEED = 1.35;
 const CRASH_DUR = 2.8;
 
+/** Tốc độ lái tay — đủ nhanh để nghịch nhưng không tông bay bàn lab. */
+const MANUAL_LINEAR_SPEED = 2.2;
+const MANUAL_STRAFE_SPEED = 1.8;
+const MANUAL_TURN_SPEED = 2.4;
+
+/** Phím đang giữ cho chế độ manual — module-level để HUD ngoài Canvas cũng đọc/ghi được. */
+export const amrKeysHeld = {
+  forward: false,
+  back: false,
+  strafeLeft: false,
+  strafeRight: false,
+  turnLeft: false,
+  turnRight: false,
+  brake: false,
+};
+
+function isTypingTarget(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null;
+  if (!el) return false;
+  const tag = (el.tagName ?? '').toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+function setAmrKey(code: string, down: boolean): boolean {
+  switch (code) {
+    case 'KeyW':
+    case 'ArrowUp':
+      amrKeysHeld.forward = down;
+      return true;
+    case 'KeyS':
+    case 'ArrowDown':
+      amrKeysHeld.back = down;
+      return true;
+    case 'KeyA':
+      amrKeysHeld.strafeLeft = down;
+      return true;
+    case 'KeyD':
+      amrKeysHeld.strafeRight = down;
+      return true;
+    case 'KeyQ':
+    case 'ArrowLeft':
+      amrKeysHeld.turnLeft = down;
+      return true;
+    case 'KeyE':
+    case 'ArrowRight':
+      amrKeysHeld.turnRight = down;
+      return true;
+    case 'Space':
+      amrKeysHeld.brake = down;
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Gắn 1 lần duy nhất — lắng nghe WASD/QE/mũi tên/Space để lái AMR ở chế độ manual. */
+let amrKeyListenerAttached = false;
+function ensureAmrKeyListener() {
+  if (amrKeyListenerAttached || typeof window === 'undefined') return;
+  amrKeyListenerAttached = true;
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) {
+      if (setAmrKey(e.code, true)) e.preventDefault();
+      return;
+    }
+    if (isTypingTarget(e)) return;
+    // Chỉ chiếm phím khi đang ở chế độ manual — auto vẫn để camera/tour dùng phím tự do.
+    if (useLabStore.getState().amrMode !== 'manual') return;
+    if (setAmrKey(e.code, true)) e.preventDefault();
+  });
+  window.addEventListener('keyup', (e) => {
+    if (setAmrKey(e.code, false)) e.preventDefault();
+  });
+  window.addEventListener('blur', () => {
+    amrKeysHeld.forward = amrKeysHeld.back = false;
+    amrKeysHeld.strafeLeft = amrKeysHeld.strafeRight = false;
+    amrKeysHeld.turnLeft = amrKeysHeld.turnRight = false;
+    amrKeysHeld.brake = false;
+  });
+}
+
 const SWERVE_MODULES = [
   { steer: 'Steer_FL', wheel: 'Wheel_FL', rx: 0.4898, rz: 0.4809 },
   { steer: 'Steer_FR', wheel: 'Wheel_FR', rx: -0.4898, rz: 0.4809 },
@@ -1313,6 +1394,11 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
   const select = useLabStore((s) => s.select);
   const selected = useLabStore((s) => s.selectedId === project.id);
   const fx = useLabStore((s) => s.fx[project.id]) ?? AMR_EMPTY_FX;
+  const amrMode = useLabStore((s) => s.amrMode);
+
+  useEffect(() => {
+    ensureAmrKeyListener();
+  }, []);
 
   const body = useRef<THREE.Group>(null);
   const scan = useRef<THREE.Mesh>(null);
@@ -1322,6 +1408,7 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
 
   const distAlong = useRef(0.0);
   const initialized = useRef(false);
+  const prevMode = useRef<'auto' | 'manual'>('auto');
   const prevPos = useRef(new THREE.Vector3(0, 0, 3.1));
   const prevYaw = useRef(Math.PI * 0.5);
   const steerAngles = useRef<number[]>([0, 0, 0, 0]);
@@ -1376,9 +1463,57 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
       bonkT.current = t;
     }
 
-    const inCrash = crashStart.current >= 0;
+    const mode = useLabStore.getState().amrMode;
+    if (prevMode.current !== mode) {
+      prevMode.current = mode;
+      if (mode === 'manual') {
+        // Vào manual: dừng crash, tắt tia lửa, xóa phím kẹt.
+        crashStart.current = -1;
+        setCrashing(false);
+        if (spark.current) spark.current.visible = false;
+        amrKeysHeld.forward = amrKeysHeld.back = false;
+        amrKeysHeld.strafeLeft = amrKeysHeld.strafeRight = false;
+        amrKeysHeld.turnLeft = amrKeysHeld.turnRight = false;
+        amrKeysHeld.brake = false;
+      } else {
+        // Về auto: bắt lại điểm gần nhất trên patrol để xe không nhảy cóc.
+        let bestU = 0;
+        let bestD = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < 64; i++) {
+          PATROL_CURVE.getPointAt(i / 64, TMP_PT);
+          const d = (TMP_PT.x - b.position.x) ** 2 + (TMP_PT.z - b.position.z) ** 2;
+          if (d < bestD) {
+            bestD = d;
+            bestU = i / 64;
+          }
+        }
+        distAlong.current = bestU * PATROL_LENGTH;
+        nextCrash.current = t + 14 + Math.random() * 14;
+      }
+    }
 
-    if (inCrash) {
+    const manual = mode === 'manual';
+    const inCrash = !manual && crashStart.current >= 0;
+
+    if (manual) {
+      // Lái tay: W/S tiến-lùi, A/D lách trái-phải, Q/E (hoặc ←/→) xoay, Space phanh.
+      const fwd = (amrKeysHeld.forward ? 1 : 0) - (amrKeysHeld.back ? 1 : 0);
+      const strafe = (amrKeysHeld.strafeRight ? 1 : 0) - (amrKeysHeld.strafeLeft ? 1 : 0);
+      const turn = (amrKeysHeld.turnRight ? 1 : 0) - (amrKeysHeld.turnLeft ? 1 : 0);
+      if (!amrKeysHeld.brake && (fwd !== 0 || strafe !== 0)) {
+        const lz = fwd * MANUAL_LINEAR_SPEED;
+        const lx = strafe * MANUAL_STRAFE_SPEED;
+        const yaw = b.rotation.y;
+        const sin = Math.sin(yaw);
+        const cos = Math.cos(yaw);
+        b.position.x += (lx * cos + lz * sin) * safeDt;
+        b.position.z += (-lx * sin + lz * cos) * safeDt;
+      }
+      if (!amrKeysHeld.brake && turn !== 0) {
+        b.rotation.y = wrapPi(b.rotation.y + turn * MANUAL_TURN_SPEED * safeDt);
+      }
+      resolveFloorCollisions(b.position, useLabStore.getState().projects);
+    } else if (inCrash) {
       if (t - crashStart.current >= CRASH_DUR) {
         crashStart.current = -1;
         setCrashing(false);
@@ -1472,7 +1607,10 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
     }
     if (beacon.current) {
       const m = beacon.current.material as THREE.MeshBasicMaterial;
-      if (inCrash) {
+      if (manual) {
+        m.color.set('#2ee6ff');
+        m.opacity = Math.sin(t * 8) > -0.2 ? 0.95 : 0.4;
+      } else if (inCrash) {
         m.color.set('#ff4d5e');
         m.opacity = Math.sin(t * 18) > 0 ? 1 : 0.15;
       } else {
@@ -1549,7 +1687,11 @@ export function AmrRover({ project, sagging }: { project: DustyProject; sagging:
             <div className="font-display text-[11px] font-bold tracking-widest text-holo">{project.codeName}</div>
             <div className="mt-0.5 flex gap-3 text-[9px]">
               <span className="text-holo/80">▓ {project.completionPercent}% XONG</span>
-              {crashing ? (
+              {amrMode === 'manual' ? (
+                <span className="animate-pulse font-bold text-holo">
+                  🎮 MANUAL — WASD + Q/E
+                </span>
+              ) : crashing ? (
                 <span className="animate-pulse font-bold text-danger">
                   <AiOutlineWarning className="inline-block align-[-2px]" /> MẤT ĐỊNH VỊ
                 </span>

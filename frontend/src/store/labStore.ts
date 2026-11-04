@@ -49,6 +49,10 @@ interface LabStore {
   /** Brownout test — đèn lab chuyển amber trong ~2s. */
   brownoutActive: boolean;
 
+  /** AMR SLAM: 'auto' = chạy vòng patrol + mất định vị ngẫu nhiên, 'manual' = lái bằng bàn phím. */
+  amrMode: 'auto' | 'manual';
+  setAmrMode: (mode: 'auto' | 'manual') => void;
+
   /** Per-project FX nonces — bumped every time a lab event lands, watched by 3D components. */
   fx: Record<string, Record<FxType, number>>;
   /** Global FX — camera shake on bonk, screen flash on boom. */
@@ -103,6 +107,18 @@ export const useLabStore = create<LabStore>((set, get) => ({
   tourFocusId: null,
   lastActivity: Date.now(),
   brownoutActive: false,
+  amrMode: 'auto',
+  setAmrMode: (mode) => {
+    set({ amrMode: mode });
+    get().recordActivity();
+    get().pushFeed(
+      'amr-crash',
+      'amr-slam',
+      mode === 'manual'
+        ? 'AMR_SLAM: Chuyển sang MANUAL — kỹ sư giành quyền lái bằng bàn phím (WASD + Q/E).'
+        : 'AMR_SLAM: Trả về AUTO — tiếp tục chạy vòng patrol quanh bàn J.A.R.V.I.S.',
+    );
+  },
   fx: {},
   shakeNonce: 0,
   flashNonce: 0,

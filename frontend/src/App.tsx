@@ -3,6 +3,7 @@ import { LabScene } from './scene/LabScene';
 import { TopBar } from './hud/TopBar';
 import { ExcuseConsole } from './hud/ExcuseConsole';
 import { InspectorDrawer } from './hud/InspectorDrawer';
+import { AmrControl } from './hud/AmrControl';
 import { NavDock } from './hud/NavDock';
 import { BadIdeasModal, GraveyardModal } from './hud/Modals';
 import { ChatWidget } from './hud/ChatWidget';
@@ -42,6 +43,7 @@ export default function App() {
       <ExcuseConsole />
       <SerialMonitor />
       <InspectorDrawer />
+      <AmrControl />
       <NavDock />
       <GraveyardModal />
       <BadIdeasModal />

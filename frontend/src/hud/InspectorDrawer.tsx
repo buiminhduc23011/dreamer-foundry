@@ -198,9 +198,13 @@ export function InspectorDrawer() {
   const bonk = useLabStore((s) => s.bonk);
   const cleanDust = useLabStore((s) => s.cleanDust);
   const boom = useLabStore((s) => s.boom);
+  const amrMode = useLabStore((s) => s.amrMode);
+  const setAmrMode = useLabStore((s) => s.setAmrMode);
   const [tab, setTab] = useState<MainTab>('roadmap');
 
   if (!project) return null;
+  const isAmr = project.id === 'amr-slam';
+  const manual = amrMode === 'manual';
 
   return (
     <aside className="hud-panel animate-holo-flicker pointer-events-auto fixed bottom-3 right-3 top-20 z-40 flex w-[400px] max-w-[46vw] flex-col">
@@ -247,6 +251,38 @@ export function InspectorDrawer() {
           <span className="text-holo/50">NGHỊCH LÝ THỜI GIAN: </span>
           <span className="text-danger/90">{project.timeParadox}</span>
         </div>
+
+        {/* Cài đặt lái AMR — chỉ hiện với PRJ-AMR-SLAM */}
+        {isAmr && (
+          <div className="mb-3 border border-holo/20 bg-void/60 p-2">
+            <div className="mb-1.5 font-mono text-[8px] tracking-widest text-holo/60">
+              ⚙ CÀI ĐẶT LÁI — {manual ? <span className="font-bold text-amber-glow">MANUAL (BÀN PHÍM)</span> : <span className="font-bold text-holo">AUTO PATROL</span>}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => setAmrMode('auto')}
+                className={`border px-2 py-1.5 font-mono text-[9px] font-bold transition-colors ${
+                  !manual ? 'border-holo bg-holo/15 text-holo' : 'border-holo/25 text-holo/50 hover:border-holo/60 hover:text-holo'
+                }`}
+              >
+                🛰 AUTO VÒNG VÒNG
+              </button>
+              <button
+                onClick={() => setAmrMode('manual')}
+                className={`border px-2 py-1.5 font-mono text-[9px] font-bold transition-colors ${
+                  manual ? 'border-amber-glow/60 bg-amber-glow/15 text-amber-glow' : 'border-holo/25 text-holo/50 hover:border-amber-glow/60 hover:text-amber-glow'
+                }`}
+              >
+                🎮 MANUAL PHÍM
+              </button>
+            </div>
+            <div className="mt-1.5 font-mono text-[8px] leading-relaxed text-holo/55">
+              {manual
+                ? 'W/S tiến-lùi · A/D lách · Q/E (←/→) xoay · Space phanh. Bấm ra panel góc trái để lái bằng nút nhấn.'
+                : 'Đang tự chạy patrol + giả lập mất định vị. Bấm MANUAL để giành quyền lái.'}
+            </div>
+          </div>
+        )}
 
         {/* main tabs */}
         <div className="mb-3 flex gap-1 border-b border-holo/15 pb-2">
